@@ -36,12 +36,14 @@ fun ProtectedDashboard(userName: String, viewModel: AuthViewModel = viewModel())
     // Precisamos de uma View real para o CameraX (mesmo que pequena)
     var previewView: PreviewView? by remember { mutableStateOf(null) }
 
-    // --- SENSOR DE QUEDAS ---
+    // --- SENSOR DE QUEDAS E ACIDENTES ---
     val fallDetector = remember { FallDetector(context) }
     DisposableEffect(Unit) {
-        fallDetector.startListening {
-            viewModel.triggerCountdown("Queda Detetada (Impacto)")
-        }
+        // CORREÇÃO: Agora passamos os dois callbacks separadamente
+        fallDetector.startListening(
+            onFall = { viewModel.handleFallDetected() },
+            onAccident = { viewModel.handleAccidentDetected() }
+        )
         onDispose { fallDetector.stopListening() }
     }
 
