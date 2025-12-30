@@ -11,6 +11,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -52,7 +53,11 @@ class VideoRecordingManager(private val context: Context) {
     }
 
     // 2. Gravar Vídeo (30s) e depois Upload
-    fun startRecording30Seconds(onVideoUploaded: (String) -> Unit) {
+    fun startRecording30Seconds(
+        onRecordingStart: () -> Unit,
+        onRecordingEnd: () -> Unit,
+        onVideoUploaded: (String) -> Unit
+    ) {
         val videoCapture = this.videoCapture ?: return
 
         // Criar nome único para o ficheiro
@@ -82,12 +87,14 @@ class VideoRecordingManager(private val context: Context) {
                 when(recordEvent) {
                     is VideoRecordEvent.Start -> {
                         Log.d("VIDEO", "Gravação iniciada! A contar 30s...")
+                        onRecordingStart()
                         // Pára automaticamente daqui a 30s
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            stopRecordingAndUpload(onVideoUploaded)
+                            stopRecordingAndUpload(onRecordingEnd, onVideoUploaded)
                         }, 30000)
                     }
                     is VideoRecordEvent.Finalize -> {
+                        onRecordingEnd() // Garante que a UI limpa se acabar por outro motivo
                         if (!recordEvent.hasError()) {
                             val uri = recordEvent.outputResults.outputUri
                             Log.d("VIDEO", "Gravação terminada: $uri")
@@ -102,18 +109,24 @@ class VideoRecordingManager(private val context: Context) {
             }
     }
 
-    private fun stopRecordingAndUpload(onVideoUploaded: (String) -> Unit) {
+    private fun stopRecordingAndUpload(onRecordingEnd: () -> Unit, onVideoUploaded: (String) -> Unit) {
         activeRecording?.stop()
         activeRecording = null
+        onRecordingEnd()
     }
 
     // 3. Upload para Firebase Storage e obter URL
     private fun uploadVideoToFirebase(fileUri: Uri, onUrlReady: (String) -> Unit) {
-        Toast.makeText(context, "A enviar vídeo de emergência...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Sending emergency recording...", Toast.LENGTH_SHORT).show()
 
         val ref = storage.reference.child("alert_videos/${System.currentTimeMillis()}.mp4")
 
-        ref.putFile(fileUri)
+        // Adicionar metadados para garantir que é tratado como vídeo
+        val metadata = StorageMetadata.Builder()
+            .setContentType("video/mp4")
+            .build()
+
+        ref.putFile(fileUri, metadata)
             .addOnSuccessListener {
                 ref.downloadUrl.addOnSuccessListener { uri ->
                     Log.d("VIDEO", "Upload Sucesso! URL: $uri")
@@ -122,7 +135,8 @@ class VideoRecordingManager(private val context: Context) {
             }
             .addOnFailureListener {
                 Log.e("VIDEO", "Falha no upload", it)
-                Toast.makeText(context, "Falha no envio do vídeo", Toast.LENGTH_SHORT).show()
+                // Mostra o erro específico no Toast
+                Toast.makeText(context, "Falha no envio: ${it.message}", Toast.LENGTH_LONG).show()
             }
     }
 }

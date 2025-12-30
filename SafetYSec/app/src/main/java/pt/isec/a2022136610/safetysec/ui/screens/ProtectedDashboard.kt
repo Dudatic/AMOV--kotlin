@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -34,6 +35,10 @@ fun ProtectedDashboard(
     val generatedCode by viewModel.generatedCode.collectAsState()
     val showCountdown by viewModel.showCountdown.collectAsState()
     var showCodeDialog by remember { mutableStateOf(false) }
+
+    // Estado para controlar a visibilidade da gravação
+    var isRecording by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -56,7 +61,16 @@ fun ProtectedDashboard(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.size(100.dp).align(Alignment.TopEnd).padding(8.dp)) {
+
+        // CAMERA PREVIEW - Só visível quando isRecording = true
+        // Usamos alpha e tamanho pequeno quando inativo para manter a Surface viva
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+                .size(if (isRecording) 150.dp else 1.dp) // Aumentei um pouco para ver melhor a gravação
+                .alpha(if (isRecording) 1f else 0f)
+        ) {
             AndroidView(
                 factory = { ctx -> PreviewView(ctx).also { previewView = it } },
                 modifier = Modifier.fillMaxSize()
@@ -121,9 +135,15 @@ fun ProtectedDashboard(
                 onTimeout = {
                     viewModel.executeFinalAlert()
                     Toast.makeText(context, "ALERT SENT! RECORDING...", Toast.LENGTH_LONG).show()
-                    videoManager.startRecording30Seconds { videoUrl ->
-                        viewModel.executeFinalAlert(videoUrl)
-                    }
+
+                    // Iniciar Gravação com Callbacks de Estado
+                    videoManager.startRecording30Seconds(
+                        onRecordingStart = { isRecording = true },
+                        onRecordingEnd = { isRecording = false },
+                        onVideoUploaded = { videoUrl ->
+                            viewModel.executeFinalAlert(videoUrl)
+                        }
+                    )
                 }
             )
         }
