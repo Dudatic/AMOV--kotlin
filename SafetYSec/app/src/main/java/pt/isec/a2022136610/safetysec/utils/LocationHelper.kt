@@ -2,10 +2,10 @@ package pt.isec.a2022136610.safetysec.utils
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.location.Location
 import android.os.Looper
 import android.util.Log
 import com.google.android.gms.location.*
-import com.google.firebase.firestore.GeoPoint
 
 class LocationHelper(context: Context) {
 
@@ -15,7 +15,7 @@ class LocationHelper(context: Context) {
     private var locationCallback: LocationCallback? = null
 
     @SuppressLint("MissingPermission")
-    fun startLocationUpdates(onLocationResult: (GeoPoint) -> Unit) {
+    fun startLocationUpdates(onLocationResult: (Location) -> Unit) {
 
         Log.d("GPS_DEBUG", "A tentar iniciar atualizações de GPS...")
 
@@ -26,9 +26,9 @@ class LocationHelper(context: Context) {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 for (location in locationResult.locations) {
-                    Log.d("GPS_DEBUG", "Nova localização recebida: Lat=${location.latitude}, Long=${location.longitude}")
-                    val geoPoint = GeoPoint(location.latitude, location.longitude)
-                    onLocationResult(geoPoint)
+                    // Agora enviamos o objeto Location completo para ter acesso à velocidade e tempo
+                    Log.d("GPS_DEBUG", "Nova localização: Lat=${location.latitude}, Speed=${location.speed}")
+                    onLocationResult(location)
                 }
             }
         }

@@ -13,30 +13,36 @@ class FallDetector(context: Context) : SensorEventListener {
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
-    // Callback para avisar o UI quando cair
+    // Callbacks
     private var onFallDetected: (() -> Unit)? = null
+    private var onAccidentDetected: (() -> Unit)? = null
 
-    // Controlo para não disparar 10 vezes na mesma queda
-    private var lastFallTime: Long = 0
-    private val COOLDOWN_MS = 5000 // Espera 5 segundos entre deteções
+    private var lastEventTime: Long = 0
+    // Aumentei o cooldown para evitar disparos repetidos se o telemóvel continuar a abanar
+    private val COOLDOWN_MS = 3000
 
-    // Limite de força para considerar queda (aprox 2.5G)
-    // O valor normal parado é ~9.8 m/s² (1G). Uma queda gera picos de 20-30.
+    // --- AJUSTE DE SENSIBILIDADE
     private val FALL_THRESHOLD = 25.0
 
-    fun startListening(callback: () -> Unit) {
+    // 40.0 (~4.5G) = Requer impacto muito forte (Simula acidente)
+    private val ACCIDENT_THRESHOLD = 45.0
+
+    fun startListening(onFall: () -> Unit, onAccident: () -> Unit) {
         if (accelerometer == null) {
             Log.e("FALL_DETECTOR", "Este dispositivo não tem acelerómetro!")
             return
         }
-        onFallDetected = callback
-        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI)
-        Log.d("FALL_DETECTOR", "Deteção de quedas ATIVADA.")
+        this.onFallDetected = onFall
+        this.onAccidentDetected = onAccident
+
+        // Mantemos o GAME delay porque é o que permite detetar os picos rápidos
+        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME)
+        Log.d("FALL_DETECTOR", "Deteção de Quedas e Acidentes ATIVADA (Threshold: $FALL_THRESHOLD).")
     }
 
     fun stopListening() {
         sensorManager.unregisterListener(this)
-        Log.d("FALL_DETECTOR", "Deteção de quedas PARADA.")
+        Log.d("FALL_DETECTOR", "Deteção PARADA.")
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
@@ -47,26 +53,28 @@ class FallDetector(context: Context) : SensorEventListener {
             val y = event.values[1]
             val z = event.values[2]
 
-            // Cálculo da magnitude do vetor (Força total)
             val acceleration = sqrt((x * x + y * y + z * z).toDouble())
+            val currentTime = System.currentTimeMillis()
 
-            // Se a força for muito grande (Impacto)
-            if (acceleration > FALL_THRESHOLD) {
-                val currentTime = System.currentTimeMillis()
+            // Filtro para ignorar movimentos normais (Gravidade ~9.8)
+            if (acceleration < 15.0) return
 
-                // Verifica se já passou o tempo de cooldown
-                if (currentTime - lastFallTime > COOLDOWN_MS) {
-                    lastFallTime = currentTime
-                    Log.w("FALL_DETECTOR", "QUEDA DETETADA! Força: $acceleration")
-
-                    // Dispara o alerta
+            if (currentTime - lastEventTime > COOLDOWN_MS) {
+                // Prioridade ao Acidente (Força maior)
+                if (acceleration > ACCIDENT_THRESHOLD) {
+                    lastEventTime = currentTime
+                    Log.w("FALL_DETECTOR", ">>> ACIDENTE DETETADO! Força: $acceleration")
+                    onAccidentDetected?.invoke()
+                }
+                // Se não for acidente, verifica se é queda
+                else if (acceleration > FALL_THRESHOLD) {
+                    lastEventTime = currentTime
+                    Log.w("FALL_DETECTOR", ">>> QUEDA DETETADA! Força: $acceleration")
                     onFallDetected?.invoke()
                 }
             }
         }
     }
 
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // Não precisamos de lidar com isto
-    }
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) { }
 }

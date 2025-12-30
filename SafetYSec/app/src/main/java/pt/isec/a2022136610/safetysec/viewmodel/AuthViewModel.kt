@@ -16,6 +16,7 @@ import pt.isec.a2022136610.safetysec.model.SafetyAlert
 import pt.isec.a2022136610.safetysec.model.SafetyRule
 import pt.isec.a2022136610.safetysec.model.UserProfile
 import pt.isec.a2022136610.safetysec.model.UserRole
+import java.util.Calendar
 import kotlin.random.Random
 
 class AuthViewModel : ViewModel() {
@@ -39,15 +40,17 @@ class AuthViewModel : ViewModel() {
 
     private var myRules: List<SafetyRule> = emptyList()
 
-    // --- ESTADOS DE ALERTA (COUNTDOWN) ---
+    // --- ESTADOS DE ALERTA ---
     private val _showCountdown = MutableStateFlow(false)
     val showCountdown: StateFlow<Boolean> = _showCountdown
 
     private var pendingAlertReason: String? = null
     private var isAlertActive = false
-
-    // ID do alerta atual para podermos anexar o vídeo mais tarde
     private var currentAlertId: String? = null
+
+    // --- CONTROLO DE INATIVIDADE ---
+    private var lastMovementTime: Long = System.currentTimeMillis()
+    private var lastKnownLocation: Location? = null
 
     // --- LOGIN ---
     fun login(email: String, pass: String) {
@@ -106,6 +109,7 @@ class AuthViewModel : ViewModel() {
                 if (e != null) return@addSnapshotListener
                 if (snapshots != null) {
                     myRules = snapshots.toObjects(SafetyRule::class.java)
+                    Log.d("RULES", "Regras carregadas: ${myRules.size}")
                 }
             }
     }
@@ -164,26 +168,100 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // --- GPS + VERIFICAÇÃO ---
-    fun updateUserLocation(location: GeoPoint) {
-        val userId = auth.currentUser?.uid ?: return
+    // --- REGRAS DE MONITORIZAÇÃO ---
 
-        db.collection("users").document(userId).update("lastLocation", location)
-            .addOnFailureListener { }
+    private fun isRuleActiveNow(rule: SafetyRule): Boolean {
+        if (!rule.isActive) return false
 
-        checkGeofenceRules(location)
+        val now = Calendar.getInstance()
+        val currentHour = now.get(Calendar.HOUR_OF_DAY)
+        val currentMinute = now.get(Calendar.MINUTE)
+        val currentDay = now.get(Calendar.DAY_OF_WEEK) // 1=Dom, 7=Sab
+
+        // Verificar Dias da Semana
+        if (rule.activeDays != null && rule.activeDays.isNotEmpty()) {
+            if (!rule.activeDays.contains(currentDay)) return false
+        }
+
+        // Verificar Janela Horária (HH:mm)
+        if (rule.startTime != null && rule.endTime != null) {
+            try {
+                val (startH, startM) = rule.startTime.split(":").map { it.toInt() }
+                val (endH, endM) = rule.endTime.split(":").map { it.toInt() }
+
+                val nowMins = currentHour * 60 + currentMinute
+                val startMins = startH * 60 + startM
+                val endMins = endH * 60 + endM
+
+                if (startMins <= endMins) {
+                    if (nowMins < startMins || nowMins > endMins) return false
+                } else {
+                    if (nowMins < startMins && nowMins > endMins) return false
+                }
+            } catch (e: Exception) {
+                Log.e("RULES", "Erro ao fazer parse das horas: ${e.message}")
+            }
+        }
+        return true
     }
 
-    private fun checkGeofenceRules(currentLocation: GeoPoint) {
-        if (myRules.isEmpty()) return
+    // --- EVENTOS DE SENSORES (QUEDA / ACIDENTE) ---
+
+    fun handleFallDetected() {
         if (isAlertActive) return
 
+        // 1. Tenta encontrar uma regra válida
+        val activeRule = myRules.firstOrNull { it.type == RuleType.FALL_DETECTION && isRuleActiveNow(it) }
+
+        // 2. CORREÇÃO: Se existir regra, usa o nome dela. Se NÃO existir, dispara em modo DEBUG.
+        if (activeRule != null) {
+            triggerCountdown("QUEDA DETETADA (Regra: ${activeRule.name})")
+        } else {
+            // DEBUG APENAS: Para testar sem ter de criar regras na DB
+            Log.w("DEBUG", "Queda detetada pelo sensor, mas sem regra definida. A disparar alerta de teste.")
+            triggerCountdown("QUEDA DETETADA (Teste/Sem Regra)")
+        }
+    }
+
+    fun handleAccidentDetected() {
+        if (isAlertActive) return
+        val activeRule = myRules.firstOrNull { it.type == RuleType.ACCIDENT && isRuleActiveNow(it) }
+
+        if (activeRule != null) {
+            triggerCountdown("ACIDENTE DETETADO (Regra: ${activeRule.name})")
+        } else {
+            // DEBUG APENAS
+            Log.w("DEBUG", "Acidente detetado pelo sensor, mas sem regra definida. A disparar alerta de teste.")
+            triggerCountdown("ACIDENTE DETETADO (Teste/Sem Regra)")
+        }
+    }
+
+    // --- GPS UPDATE E VERIFICAÇÕES DE LOCALIZAÇÃO/VELOCIDADE/INATIVIDADE ---
+
+    fun updateUserLocation(location: Location) {
+        val userId = auth.currentUser?.uid ?: return
+        val geoPoint = GeoPoint(location.latitude, location.longitude)
+
+        // Atualizar DB
+        db.collection("users").document(userId).update("lastLocation", geoPoint)
+            .addOnFailureListener { }
+
+        checkInactivityRules(location)
+
+        if (isAlertActive) return
+
+        checkGeofenceRules(location)
+        checkSpeedRules(location)
+    }
+
+    private fun checkGeofenceRules(location: Location) {
         for (rule in myRules) {
             if (rule.type == RuleType.GEOFENCING && rule.geofenceCenter != null && rule.geofenceRadiusMeters != null) {
+                if (!isRuleActiveNow(rule)) continue
 
                 val results = FloatArray(1)
                 Location.distanceBetween(
-                    currentLocation.latitude, currentLocation.longitude,
+                    location.latitude, location.longitude,
                     rule.geofenceCenter.latitude, rule.geofenceCenter.longitude,
                     results
                 )
@@ -191,6 +269,47 @@ class AuthViewModel : ViewModel() {
 
                 if (distanceInMeters > rule.geofenceRadiusMeters) {
                     triggerCountdown(reason = "SAIU DA ZONA SEGURA: ${rule.name}")
+                    return
+                }
+            }
+        }
+    }
+
+    private fun checkSpeedRules(location: Location) {
+        val currentSpeedKmh = location.speed * 3.6
+
+        for (rule in myRules) {
+            if (rule.type == RuleType.MAX_SPEED && rule.maxSpeedKmh != null) {
+                if (!isRuleActiveNow(rule)) continue
+
+                if (currentSpeedKmh > rule.maxSpeedKmh) {
+                    triggerCountdown(reason = "EXCESSO DE VELOCIDADE: ${String.format("%.1f", currentSpeedKmh)} km/h")
+                    return
+                }
+            }
+        }
+    }
+
+    private fun checkInactivityRules(currentLocation: Location) {
+        val now = System.currentTimeMillis()
+
+        if (lastKnownLocation != null) {
+            val distance = currentLocation.distanceTo(lastKnownLocation!!)
+            if (distance > 10) {
+                lastMovementTime = now
+            }
+        }
+        lastKnownLocation = currentLocation
+
+        for (rule in myRules) {
+            if (rule.type == RuleType.INACTIVITY && rule.inactivityTimeMinutes != null) {
+                if (!isRuleActiveNow(rule)) continue
+
+                val inactiveDurationMinutes = (now - lastMovementTime) / 60000
+
+                if (inactiveDurationMinutes >= rule.inactivityTimeMinutes) {
+                    triggerCountdown(reason = "INATIVIDADE PROLONGADA: ${inactiveDurationMinutes} min")
+                    lastMovementTime = now
                     return
                 }
             }
@@ -223,7 +342,10 @@ class AuthViewModel : ViewModel() {
     private fun determineRuleType(reason: String): RuleType {
         return when {
             reason.contains("ZONA", ignoreCase = true) -> RuleType.GEOFENCING
-            reason.contains("Queda", ignoreCase = true) -> RuleType.FALL_DETECTION
+            reason.contains("QUEDA", ignoreCase = true) -> RuleType.FALL_DETECTION
+            reason.contains("ACIDENTE", ignoreCase = true) -> RuleType.ACCIDENT
+            reason.contains("VELOCIDADE", ignoreCase = true) -> RuleType.MAX_SPEED
+            reason.contains("INATIVIDADE", ignoreCase = true) -> RuleType.INACTIVITY
             else -> RuleType.PANIC_BUTTON
         }
     }
@@ -246,7 +368,6 @@ class AuthViewModel : ViewModel() {
         db.collection("alerts").document(alertLog.id).set(alertLog)
     }
 
-    // Função principal que gere o alerta final e anexa o vídeo
     fun executeFinalAlert(videoUrl: String? = null) {
         _showCountdown.value = false
 
@@ -255,14 +376,12 @@ class AuthViewModel : ViewModel() {
         val reason = pendingAlertReason ?: "Emergência"
         val type = determineRuleType(reason)
 
-        // CASO 1: Atualizar alerta existente com o vídeo
         if (currentAlertId != null && videoUrl != null) {
             db.collection("alerts").document(currentAlertId!!).update("videoUrl", videoUrl)
                 .addOnSuccessListener { Log.d("ALERTA", "Vídeo anexado ao alerta!") }
             return
         }
 
-        // CASO 2: Criar Novo Alerta
         val newAlertId = db.collection("alerts").document().id
         currentAlertId = newAlertId
 

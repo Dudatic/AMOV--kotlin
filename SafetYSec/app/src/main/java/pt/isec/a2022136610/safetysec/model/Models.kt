@@ -19,8 +19,6 @@ data class UserProfile(
     val protectedIds: List<String> = emptyList(),
 
     val lastLocation: GeoPoint? = null,
-
-    // --- NOVO: PIN para cancelar o alerta (Default 0000) ---
     val cancelPin: String = "0000"
 )
 
@@ -41,10 +39,18 @@ data class SafetyRule(
     val isActive: Boolean = true,
     val name: String = "",
 
+    // --- REGRAS ESPECÍFICAS ---
     val maxSpeedKmh: Double? = null,
     val inactivityTimeMinutes: Int? = null,
     val geofenceCenter: GeoPoint? = null,
-    val geofenceRadiusMeters: Double? = null
+    val geofenceRadiusMeters: Double? = null,
+
+    // --- JANELAS TEMPORAIS ---
+    // Formato esperado: "HH:mm" (ex: "09:00", "23:30")
+    val startTime: String? = null,
+    val endTime: String? = null,
+    // Dias da semana: 1 = Domingo, 2 = Segunda, ..., 7 = Sábado (Java Calendar)
+    val activeDays: List<Int>? = null
 )
 
 data class SafetyAlert(
