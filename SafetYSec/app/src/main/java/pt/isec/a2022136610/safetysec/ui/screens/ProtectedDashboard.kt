@@ -5,6 +5,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -14,32 +15,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import pt.isec.a2022136610.safetysec.R
 import pt.isec.a2022136610.safetysec.ui.components.CountdownAlert
 import pt.isec.a2022136610.safetysec.utils.FallDetector
 import pt.isec.a2022136610.safetysec.utils.VideoRecordingManager
 import pt.isec.a2022136610.safetysec.viewmodel.AuthViewModel
 
 @Composable
-fun ProtectedDashboard(userName: String, viewModel: AuthViewModel = viewModel()) {
+fun ProtectedDashboard(
+    userName: String,
+    onHistoryClick: () -> Unit,
+    viewModel: AuthViewModel = viewModel()
+) {
     val generatedCode by viewModel.generatedCode.collectAsState()
     val showCountdown by viewModel.showCountdown.collectAsState()
-
     var showCodeDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // --- CÂMARA & VÍDEO ---
     val videoManager = remember { VideoRecordingManager(context) }
-    // Precisamos de uma View real para o CameraX (mesmo que pequena)
     var previewView: PreviewView? by remember { mutableStateOf(null) }
-
-    // --- SENSOR DE QUEDAS E ACIDENTES ---
     val fallDetector = remember { FallDetector(context) }
+
     DisposableEffect(Unit) {
-        // CORREÇÃO: Agora passamos os dois callbacks separadamente
         fallDetector.startListening(
             onFall = { viewModel.handleFallDetected() },
             onAccident = { viewModel.handleAccidentDetected() }
@@ -49,37 +51,29 @@ fun ProtectedDashboard(userName: String, viewModel: AuthViewModel = viewModel())
 
     LaunchedEffect(generatedCode) { if (generatedCode != null) showCodeDialog = true }
 
-    // Inicializar Câmara quando a view estiver pronta
     LaunchedEffect(previewView) {
-        if (previewView != null) {
-            videoManager.startCamera(lifecycleOwner, previewView!!)
-        }
+        if (previewView != null) videoManager.startCamera(lifecycleOwner, previewView!!)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-
-        // PREVIEW DA CÂMARA (Pequeno no canto superior direito)
         Box(modifier = Modifier.size(100.dp).align(Alignment.TopEnd).padding(8.dp)) {
             AndroidView(
-                factory = { ctx ->
-                    PreviewView(ctx).also { previewView = it }
-                },
+                factory = { ctx -> PreviewView(ctx).also { previewView = it } },
                 modifier = Modifier.fillMaxSize()
             )
         }
 
-        // --- CONTEÚDO PRINCIPAL ---
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Modo Protegido", style = MaterialTheme.typography.labelLarge)
-                Text("Olá, $userName", style = MaterialTheme.typography.headlineSmall)
+                Text(stringResource(R.string.mode_protected), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.hello_user, userName), style = MaterialTheme.typography.headlineSmall)
                 Spacer(Modifier.height(8.dp))
                 Badge(containerColor = Color.Green) {
-                    Text(" Proteção Ativa ", color = Color.Black, modifier = Modifier.padding(4.dp))
+                    Text(stringResource(R.string.protection_active), color = Color.Black, modifier = Modifier.padding(4.dp))
                 }
             }
 
@@ -91,41 +85,44 @@ fun ProtectedDashboard(userName: String, viewModel: AuthViewModel = viewModel())
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.NotificationsActive, contentDescription = "SOS", modifier = Modifier.size(48.dp))
-                    Text("SOS", style = MaterialTheme.typography.headlineLarge)
+                    Text(stringResource(R.string.sos_button), style = MaterialTheme.typography.headlineLarge)
                 }
             }
 
-            Text("Pressione em emergência\n(A gravar 30s após alerta)", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            Text(stringResource(R.string.sos_instruction), style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
 
-            OutlinedButton(onClick = { viewModel.generateAssociationCode() }) {
-                Icon(Icons.Default.Share, contentDescription = null)
-                Text("Associar Monitor")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { viewModel.generateAssociationCode() }) {
+                    Icon(Icons.Default.Share, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.btn_associate))
+                }
+                OutlinedButton(onClick = onHistoryClick) {
+                    Icon(Icons.Default.History, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.btn_history))
+                }
             }
         }
 
         if (showCodeDialog && generatedCode != null) {
             AlertDialog(
                 onDismissRequest = { showCodeDialog = false },
-                title = { Text("Código de Associação") },
+                title = { Text(stringResource(R.string.code_dialog_title)) },
                 text = { Text(generatedCode!!, style = MaterialTheme.typography.displayMedium) },
-                confirmButton = { TextButton(onClick = { showCodeDialog = false }) { Text("Fechar") } }
+                confirmButton = { TextButton(onClick = { showCodeDialog = false }) { Text(stringResource(R.string.btn_close)) } }
             )
         }
 
         if (showCountdown) {
             CountdownAlert(
-                reason = "Alerta em curso...",
+                reason = "Alert in progress...",
                 onCancel = { pin -> viewModel.verifyPinAndCancel(pin) },
                 onTimeout = {
-                    // 1. Envia o Alerta Imediatamente
                     viewModel.executeFinalAlert()
-                    Toast.makeText(context, "ALERTA ENVIADO! A GRAVAR VÍDEO...", Toast.LENGTH_LONG).show()
-
-                    // 2. Começa a gravar 30s
+                    Toast.makeText(context, "ALERT SENT! RECORDING...", Toast.LENGTH_LONG).show()
                     videoManager.startRecording30Seconds { videoUrl ->
-                        // 3. Quando acabar upload, atualiza o alerta
                         viewModel.executeFinalAlert(videoUrl)
-                        Toast.makeText(context, "Vídeo enviado ao Monitor!", Toast.LENGTH_SHORT).show()
                     }
                 }
             )

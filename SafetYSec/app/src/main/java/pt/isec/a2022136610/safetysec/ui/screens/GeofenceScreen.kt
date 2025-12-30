@@ -11,10 +11,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import pt.isec.a2022136610.safetysec.R
 import pt.isec.a2022136610.safetysec.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,22 +28,17 @@ fun GeofenceScreen(
 ) {
     val context = LocalContext.current
     val targetUser by viewModel.targetUser.collectAsState()
-
-    // Raio da cerca (em metros) - Default 100m
     var radiusInput by remember { mutableStateOf("100") }
 
-    // Carrega o utilizador alvo ao abrir o ecrã
-    LaunchedEffect(userId) {
-        viewModel.loadTargetUser(userId)
-    }
+    LaunchedEffect(userId) { viewModel.loadTargetUser(userId) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Configurar Cerca Virtual") },
+                title = { Text(stringResource(R.string.config_geofence)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -62,25 +59,25 @@ fun GeofenceScreen(
                     )
                     Spacer(Modifier.height(16.dp))
 
-                    Text("Protegido: ${targetUser!!.name}", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.protected_user, targetUser!!.name), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(32.dp))
 
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Definir Zona Segura", style = MaterialTheme.typography.titleLarge)
+                            Text(stringResource(R.string.set_safe_zone), style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.height(8.dp))
-                            Text("A cerca será criada usando a ÚLTIMA LOCALIZAÇÃO conhecida deste utilizador como centro.")
+                            Text(stringResource(R.string.geofence_instruction))
 
                             Spacer(Modifier.height(8.dp))
 
                             if (targetUser!!.lastLocation != null) {
                                 Text(
-                                    "Centro Atual: ${targetUser!!.lastLocation!!.latitude}, ${targetUser!!.lastLocation!!.longitude}",
+                                    stringResource(R.string.current_center, targetUser!!.lastLocation!!.latitude, targetUser!!.lastLocation!!.longitude),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             } else {
-                                Text("Aviso: Localização desconhecida. Não é possível criar cerca.", color = MaterialTheme.colorScheme.error)
+                                Text(stringResource(R.string.error_location), color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -90,7 +87,7 @@ fun GeofenceScreen(
                     OutlinedTextField(
                         value = radiusInput,
                         onValueChange = { radiusInput = it },
-                        label = { Text("Raio (metros)") },
+                        label = { Text(stringResource(R.string.radius_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -101,22 +98,21 @@ fun GeofenceScreen(
                         onClick = {
                             val radius = radiusInput.toDoubleOrNull()
                             if (radius != null && targetUser!!.lastLocation != null) {
-                                // Chama a função para criar a regra no ViewModel
                                 viewModel.createGeofenceRule(
                                     protectedId = userId,
                                     center = targetUser!!.lastLocation!!,
                                     radius = radius
                                 )
-                                Toast.makeText(context, "Cerca ativada com sucesso!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.success_fence), Toast.LENGTH_SHORT).show()
                                 navController.popBackStack()
                             } else {
-                                Toast.makeText(context, "Erro: Verifique o raio e se existe localização.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Error", Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = targetUser!!.lastLocation != null
                     ) {
-                        Text("ATIVAR CERCA")
+                        Text(stringResource(R.string.btn_activate_fence))
                     }
                 }
             } else {
