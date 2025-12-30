@@ -61,8 +61,8 @@ fun HomeScreen(
 
     LaunchedEffect(permissionsGranted, currentUser) {
         if (permissionsGranted && (currentUser?.role == UserRole.PROTECTED || currentUser?.role == UserRole.BOTH)) {
-            locationHelper.startLocationUpdates { geoPoint ->
-                viewModel.updateUserLocation(geoPoint)
+            locationHelper.startLocationUpdates { location ->
+                viewModel.updateUserLocation(location)
             }
         }
     }
@@ -121,18 +121,22 @@ fun HomeScreen(
                         MonitorDashboard(
                             userName = currentUser?.name ?: "Monitor",
                             onUserClick = { userId -> navController.navigate("map/$userId") },
-                            // ROTA NOVA:
-                            onGeofenceClick = { userId -> navController.navigate("geofence/$userId") }
+                            onGeofenceClick = { userId -> navController.navigate("geofence/$userId") },
+                            onRuleManageClick = { userId -> navController.navigate("rules/$userId") }
                         )
                     }
                     UserRole.PROTECTED -> {
-                        ProtectedDashboard(userName = currentUser?.name ?: "Protegido")
+                        ProtectedDashboard(
+                            userName = currentUser?.name ?: "Protegido",
+                            onHistoryClick = { navController.navigate("history") }
+                        )
                     }
                     UserRole.BOTH -> {
                         MonitorDashboard(
                             userName = currentUser?.name ?: "Utilizador",
                             onUserClick = { userId -> navController.navigate("map/$userId") },
-                            onGeofenceClick = { userId -> navController.navigate("geofence/$userId") }
+                            onGeofenceClick = { userId -> navController.navigate("geofence/$userId") },
+                            onRuleManageClick = { userId -> navController.navigate("rules/$userId") }
                         )
                     }
                     null -> {

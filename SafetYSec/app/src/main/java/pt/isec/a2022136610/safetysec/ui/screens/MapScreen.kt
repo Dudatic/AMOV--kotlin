@@ -12,10 +12,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import pt.isec.a2022136610.safetysec.R
 import pt.isec.a2022136610.safetysec.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,11 +28,8 @@ fun MapScreen(
     viewModel: AuthViewModel = viewModel()
 ) {
     val context = LocalContext.current
-
-    // Agora observamos o 'targetUser' (específico para este ecrã)
     val targetUser by viewModel.targetUser.collectAsState()
 
-    // Assim que o ecrã abre, mandamos buscar os dados deste ID específico
     LaunchedEffect(userId) {
         viewModel.loadTargetUser(userId)
     }
@@ -38,10 +37,10 @@ fun MapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Localização") },
+                title = { Text(stringResource(R.string.location_title)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back_desc))
                     }
                 }
             )
@@ -55,7 +54,6 @@ fun MapScreen(
             contentAlignment = Alignment.Center
         ) {
             if (targetUser != null) {
-                // Se já carregámos os dados, mostra o ecrã
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
@@ -85,21 +83,20 @@ fun MapScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Última Posição:", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.last_known_location_label), style = MaterialTheme.typography.labelLarge)
                             Spacer(Modifier.height(8.dp))
 
                             if (targetUser!!.lastLocation != null) {
                                 Text("Lat: ${targetUser!!.lastLocation!!.latitude}")
                                 Text("Long: ${targetUser!!.lastLocation!!.longitude}")
                             } else {
-                                Text("A aguardar sinal de GPS...", color = MaterialTheme.colorScheme.error)
+                                Text(stringResource(R.string.waiting_gps), color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
 
                     Spacer(Modifier.height(24.dp))
 
-                    // Botão para abrir Google Maps Externo
                     Button(
                         onClick = {
                             targetUser!!.lastLocation?.let { loc ->
@@ -114,11 +111,10 @@ fun MapScreen(
                     ) {
                         Icon(Icons.Default.Map, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Ver no Google Maps App")
+                        Text(stringResource(R.string.btn_google_maps))
                     }
                 }
             } else {
-                // Loading enquanto vai ao Firebase
                 CircularProgressIndicator()
             }
         }

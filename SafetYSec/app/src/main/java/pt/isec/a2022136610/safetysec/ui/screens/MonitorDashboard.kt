@@ -1,6 +1,5 @@
 package pt.isec.a2022136610.safetysec.ui.screens
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +12,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
@@ -21,11 +21,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.firestore.FirebaseFirestore
+import pt.isec.a2022136610.safetysec.R
 import pt.isec.a2022136610.safetysec.model.RuleType
 import pt.isec.a2022136610.safetysec.model.SafetyAlert
 import pt.isec.a2022136610.safetysec.viewmodel.AuthState
@@ -36,12 +38,11 @@ fun MonitorDashboard(
     userName: String,
     onUserClick: (String) -> Unit,
     onGeofenceClick: (String) -> Unit,
+    onRuleManageClick: (String) -> Unit,
     viewModel: AuthViewModel = viewModel()
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var codeInput by remember { mutableStateOf("") }
-
-    // Variáveis para o Alerta
     var latestAlert by remember { mutableStateOf<SafetyAlert?>(null) }
     var showSosDialog by remember { mutableStateOf(false) }
 
@@ -49,28 +50,23 @@ fun MonitorDashboard(
     val associatedUsers by viewModel.associatedUsers.collectAsState()
     val context = LocalContext.current
 
-    // --- ESCUTA DE ALERTAS EM TEMPO REAL ---
+    // --- STATISTICS CALCULATION ---
+    val activeUsersCount = associatedUsers.size
+    val activeAlertsCount = remember(latestAlert) { if (latestAlert != null) 1 else 0 }
+
     LaunchedEffect(associatedUsers) {
         val db = FirebaseFirestore.getInstance()
-
         if (associatedUsers.isNotEmpty()) {
             db.collection("alerts")
                 .whereEqualTo("status", "ACTIVE")
                 .addSnapshotListener { snapshots, e ->
                     if (e != null) return@addSnapshotListener
-
                     if (snapshots != null && !snapshots.isEmpty) {
                         for (doc in snapshots.documentChanges) {
-                            if (doc.type == com.google.firebase.firestore.DocumentChange.Type.ADDED ||
-                                doc.type == com.google.firebase.firestore.DocumentChange.Type.MODIFIED) {
-
-                                val alert = doc.document.toObject(SafetyAlert::class.java)
-                                val isMyProtege = associatedUsers.any { it.id == alert.protectedId }
-
-                                if (isMyProtege) {
-                                    latestAlert = alert
-                                    showSosDialog = true
-                                }
+                            val alert = doc.document.toObject(SafetyAlert::class.java)
+                            if (associatedUsers.any { it.id == alert.protectedId }) {
+                                latestAlert = alert
+                                showSosDialog = true
                             }
                         }
                     } else {
@@ -83,12 +79,11 @@ fun MonitorDashboard(
 
     LaunchedEffect(authState) {
         if (authState is AuthState.Success && showDialog) {
-            Toast.makeText(context, "Protegido associado com sucesso!", Toast.LENGTH_SHORT).show()
+            // FIX: Use R.string.associate_new (Link New Protegé) and English "Success"
+            val msg = context.getString(R.string.associate_new) + " Success!"
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             showDialog = false
             codeInput = ""
-        }
-        if (authState is AuthState.Error) {
-            Toast.makeText(context, (authState as AuthState.Error).message, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -96,25 +91,48 @@ fun MonitorDashboard(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // --- STATISTICS CARD ---
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(stringResource(R.string.statistics_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(activeUsersCount.toString(), style = MaterialTheme.typography.headlineMedium)
+                        Text(stringResource(R.string.stat_tracked_users), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(activeAlertsCount.toString(), style = MaterialTheme.typography.headlineMedium, color = Color.Red)
+                        Text(stringResource(R.string.stat_active_alerts), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+
+        // Header with Hello User
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Monitor", style = MaterialTheme.typography.labelMedium)
-                Text("Olá, $userName", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                // FIX: Translated Strings
+                Text(stringResource(R.string.monitor_dashboard), style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.hello_user, userName), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             }
         }
 
         Text(
-            "Meus Protegidos",
+            stringResource(R.string.my_proteges),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.align(Alignment.Start).padding(vertical = 8.dp)
         )
 
         if (associatedUsers.isEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Ainda não tem protegidos associados.", color = MaterialTheme.colorScheme.secondary)
+                Text(stringResource(R.string.no_proteges), color = MaterialTheme.colorScheme.secondary)
             }
         } else {
             LazyColumn(
@@ -131,17 +149,21 @@ fun MonitorDashboard(
                             headlineContent = { Text(user.name) },
                             supportingContent = {
                                 if (user.lastLocation != null)
-                                    Text("📍 Localização OK", color = MaterialTheme.colorScheme.primary)
+                                    Text(stringResource(R.string.location_ok), color = MaterialTheme.colorScheme.primary)
                                 else
-                                    Text("Sem localização")
+                                    Text(stringResource(R.string.no_location))
                             },
                             trailingContent = {
                                 Row {
+                                    // Rule Management Button
+                                    IconButton(onClick = { onRuleManageClick(user.id) }) {
+                                        Icon(Icons.Default.Settings, contentDescription = "Rules")
+                                    }
                                     IconButton(onClick = { onGeofenceClick(user.id) }) {
-                                        Icon(Icons.Default.Security, contentDescription = "Cerca")
+                                        Icon(Icons.Default.Security, contentDescription = "Geofence")
                                     }
                                     IconButton(onClick = { onUserClick(user.id) }) {
-                                        Icon(Icons.Default.LocationOn, contentDescription = "Mapa")
+                                        Icon(Icons.Default.LocationOn, contentDescription = "Map")
                                     }
                                 }
                             }
@@ -156,25 +178,26 @@ fun MonitorDashboard(
         Button(onClick = { showDialog = true }, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.PersonAdd, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Associar Novo Protegido")
+            Text(stringResource(R.string.associate_new))
         }
     }
 
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text("Associar Protegido") },
+            title = { Text(stringResource(R.string.code_dialog_title)) },
             text = {
                 Column {
-                    Text("Insira o código gerado pelo Protegido:")
+                    // FIX: Use enter_code_instruction
+                    Text(stringResource(R.string.enter_code_instruction))
                     OutlinedTextField(
                         value = codeInput, onValueChange = { codeInput = it },
-                        label = { Text("Código") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        label = { Text("Code") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                 }
             },
-            confirmButton = { Button(onClick = { viewModel.connectWithProtege(codeInput) }) { Text("Associar") } },
-            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancelar") } }
+            confirmButton = { Button(onClick = { viewModel.connectWithProtege(codeInput) }) { Text(stringResource(R.string.btn_ok)) } },
+            dismissButton = { TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.btn_cancel)) } }
         )
     }
 
@@ -182,14 +205,14 @@ fun MonitorDashboard(
 
         val ruleType = latestAlert!!.ruleType
 
-        val (alertColor, alertTitle, alertIcon) = when (ruleType) {
-            RuleType.GEOFENCING -> Triple(Color(0xFFFF9800), "ALERTA DE ZONA", Icons.Default.Security)
-            RuleType.FALL_DETECTION -> Triple(Color(0xFFD500F9), "⚠️ QUEDA DETETADA ⚠️", Icons.Default.Warning) // Roxo/Magenta
-            else -> Triple(Color(0xFFFF0000), "PEDIDO DE SOS", Icons.Default.NotificationsActive)
+        val (alertColor, alertTitleRes, alertIcon) = when (ruleType) {
+            RuleType.GEOFENCING -> Triple(Color(0xFFFF9800), R.string.alert_zone, Icons.Default.Security)
+            RuleType.FALL_DETECTION -> Triple(Color(0xFFD500F9), R.string.alert_fall, Icons.Default.Warning)
+            else -> Triple(Color(0xFFFF0000), R.string.alert_sos, Icons.Default.NotificationsActive)
         }
 
         val bgAlertColor = alertColor.copy(alpha = 0.05f)
-        val messageText = latestAlert!!.cancelReason ?: "Alerta sem detalhes."
+        val messageText = latestAlert!!.cancelReason ?: "Alert Details Missing"
 
         AlertDialog(
             onDismissRequest = { },
@@ -197,7 +220,7 @@ fun MonitorDashboard(
             icon = {
                 Icon(alertIcon, contentDescription = null, tint = alertColor, modifier = Modifier.size(48.dp))
             },
-            title = { Text(alertTitle, color = alertColor, fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(alertTitleRes), color = alertColor, fontWeight = FontWeight.Bold) },
             text = {
                 Column(
                     modifier = Modifier
@@ -217,7 +240,7 @@ fun MonitorDashboard(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = alertColor)
                 ) {
-                    Text("VER E RESOLVER")
+                    Text(stringResource(R.string.btn_resolve))
                 }
             },
             dismissButton = {
@@ -225,7 +248,7 @@ fun MonitorDashboard(
                     viewModel.dismissAlert(latestAlert!!.id)
                     showSosDialog = false
                 }) {
-                    Text("IGNORAR", color = alertColor)
+                    Text(stringResource(R.string.btn_ignore), color = alertColor)
                 }
             }
         )
