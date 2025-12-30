@@ -89,24 +89,6 @@ fun RuleManagementScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
-            Button(
-                onClick = {
-                    val existingRule = rules.find { it.type == RuleType.MAX_SPEED }
-                    val newRule = SafetyRule(
-                        id = existingRule?.id ?: "",
-                        protectedId = protectedId,
-                        type = RuleType.MAX_SPEED,
-                        name = "Max Speed Limit",
-                        maxSpeedKmh = speedLimit.toDoubleOrNull() ?: 120.0,
-                        isActive = true
-                    )
-                    viewModel.saveRule(newRule)
-                    Toast.makeText(context, "Speed Rule Saved!", Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-            ) {
-                Text(stringResource(R.string.btn_save_speed))
-            }
 
             Divider(modifier = Modifier.padding(vertical = 16.dp))
 
@@ -119,28 +101,6 @@ fun RuleManagementScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
-
-            // BUTTON MOVED HERE (Under Textbox)
-            Button(
-                onClick = {
-                    val existingRule = rules.find { it.type == RuleType.INACTIVITY }
-                    val newRule = SafetyRule(
-                        id = existingRule?.id ?: "",
-                        protectedId = protectedId,
-                        type = RuleType.INACTIVITY,
-                        name = "Inactivity Check",
-                        inactivityTimeMinutes = inactivityLimit.toIntOrNull() ?: 30,
-                        isActive = true,
-                        startTime = startTime,
-                        endTime = endTime
-                    )
-                    viewModel.saveRule(newRule)
-                    Toast.makeText(context, "Inactivity Rule Saved!", Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-            ) {
-                Text(stringResource(R.string.btn_save_inactivity))
-            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -191,6 +151,46 @@ fun RuleManagementScreen(
                         }
                     }
                 )
+            }
+
+            Spacer(Modifier.height(32.dp))
+
+            // --- GLOBAL SET RULES BUTTON ---
+            Button(
+                onClick = {
+                    // 1. Save Speed Rule
+                    val existingSpeedRule = rules.find { it.type == RuleType.MAX_SPEED }
+                    val newSpeedRule = SafetyRule(
+                        id = existingSpeedRule?.id ?: "",
+                        protectedId = protectedId,
+                        type = RuleType.MAX_SPEED,
+                        name = "Max Speed Limit",
+                        maxSpeedKmh = speedLimit.toDoubleOrNull() ?: 120.0,
+                        isActive = true,
+                        startTime = startTime,
+                        endTime = endTime
+                    )
+                    viewModel.saveRule(newSpeedRule)
+
+                    // 2. Save Inactivity Rule
+                    val existingInactivityRule = rules.find { it.type == RuleType.INACTIVITY }
+                    val newInactivityRule = SafetyRule(
+                        id = existingInactivityRule?.id ?: "",
+                        protectedId = protectedId,
+                        type = RuleType.INACTIVITY,
+                        name = "Inactivity Check",
+                        inactivityTimeMinutes = inactivityLimit.toIntOrNull() ?: 30,
+                        isActive = true,
+                        startTime = startTime,
+                        endTime = endTime
+                    )
+                    viewModel.saveRule(newInactivityRule)
+
+                    Toast.makeText(context, "Rules Updated Successfully!", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp)
+            ) {
+                Text("Set Rules")
             }
         }
     }
