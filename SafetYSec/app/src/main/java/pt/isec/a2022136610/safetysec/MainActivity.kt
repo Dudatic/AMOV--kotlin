@@ -68,7 +68,6 @@ class MainActivity : ComponentActivity() {
                             GeofenceScreen(navController = navController, userId = userId)
                         }
 
-                        // --- NOVAS ROTAS ---
                         composable(
                             route = "rules/{userId}",
                             arguments = listOf(navArgument("userId") { type = NavType.StringType })
@@ -83,6 +82,18 @@ class MainActivity : ComponentActivity() {
                         composable("history") {
                             AlertHistoryScreen(
                                 onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // NEW ROUTE
+                        composable(
+                            route = "alert/{alertId}",
+                            arguments = listOf(navArgument("alertId") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val alertId = backStackEntry.arguments?.getString("alertId") ?: ""
+                            AlertDetailsScreen(
+                                alertId = alertId,
+                                navController = navController
                             )
                         }
                     }

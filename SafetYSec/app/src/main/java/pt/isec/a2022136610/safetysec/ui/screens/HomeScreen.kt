@@ -122,7 +122,8 @@ fun HomeScreen(
                             userName = currentUser?.name ?: "Monitor",
                             onUserClick = { userId -> navController.navigate("map/$userId") },
                             onGeofenceClick = { userId -> navController.navigate("geofence/$userId") },
-                            onRuleManageClick = { userId -> navController.navigate("rules/$userId") }
+                            onRuleManageClick = { userId -> navController.navigate("rules/$userId") },
+                            onAlertClick = { alertId -> navController.navigate("alert/$alertId") }
                         )
                     }
                     UserRole.PROTECTED -> {
@@ -136,7 +137,8 @@ fun HomeScreen(
                             userName = currentUser?.name ?: "Utilizador",
                             onUserClick = { userId -> navController.navigate("map/$userId") },
                             onGeofenceClick = { userId -> navController.navigate("geofence/$userId") },
-                            onRuleManageClick = { userId -> navController.navigate("rules/$userId") }
+                            onRuleManageClick = { userId -> navController.navigate("rules/$userId") },
+                            onAlertClick = { alertId -> navController.navigate("alert/$alertId") }
                         )
                     }
                     null -> {

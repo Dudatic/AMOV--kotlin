@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +43,14 @@ class AuthViewModel : ViewModel() {
     private val _alertHistory = MutableStateFlow<List<SafetyAlert>>(emptyList())
     val alertHistory: StateFlow<List<SafetyAlert>> = _alertHistory
 
+    // New: Monitor Alerts
+    private val _monitorAlerts = MutableStateFlow<List<SafetyAlert>>(emptyList())
+    val monitorAlerts: StateFlow<List<SafetyAlert>> = _monitorAlerts
+
+    // New: Single Alert for Details
+    private val _selectedAlert = MutableStateFlow<SafetyAlert?>(null)
+    val selectedAlert: StateFlow<SafetyAlert?> = _selectedAlert
+
     private val _selectedUserRules = MutableStateFlow<List<SafetyRule>>(emptyList())
     val selectedUserRules: StateFlow<List<SafetyRule>> = _selectedUserRules
 
@@ -56,6 +65,10 @@ class AuthViewModel : ViewModel() {
 
     private var lastMovementTime: Long = System.currentTimeMillis()
     private var lastKnownLocation: Location? = null
+
+    // Listener registrations to avoid leaks and duplication
+    private var monitorAlertsListener: ListenerRegistration? = null
+    private var rulesListener: ListenerRegistration? = null
 
     // --- LOGIN ---
     fun login(email: String, pass: String) {
@@ -97,6 +110,7 @@ class AuthViewModel : ViewModel() {
 
                     if (user != null && user.protectedIds.isNotEmpty()) {
                         fetchAssociatedUsers(user.protectedIds)
+                        fetchMonitorAlerts(user.protectedIds) // Fetch alerts for monitor
                     }
 
                     if (user != null && (user.role == UserRole.PROTECTED || user.role == UserRole.BOTH)) {
@@ -106,7 +120,27 @@ class AuthViewModel : ViewModel() {
             }
     }
 
-    // --- HISTORY (Updated to Filter Cancelled Alerts) ---
+    // --- UPDATE PIN ---
+    fun updateCancelPin(newPin: String) {
+        val userId = auth.currentUser?.uid ?: return
+        if (newPin.length != 4 || !newPin.all { it.isDigit() }) {
+            _authState.value = AuthState.Error("PIN must be 4 digits")
+            return
+        }
+
+        db.collection("users").document(userId).update("cancelPin", newPin)
+            .addOnSuccessListener {
+                // Update local user object immediately for UI reflection
+                _currentUser.value = _currentUser.value?.copy(cancelPin = newPin)
+                // Just to trigger a success toast if needed, but keeping state clean is better
+                Log.d("AUTH", "PIN Updated Successfully")
+            }
+            .addOnFailureListener {
+                _authState.value = AuthState.Error("Failed to update PIN")
+            }
+    }
+
+    // --- HISTORY (For Protected) ---
     fun fetchAlertHistory() {
         val userId = auth.currentUser?.uid ?: return
 
@@ -116,13 +150,53 @@ class AuthViewModel : ViewModel() {
             .get()
             .addOnSuccessListener { result ->
                 val alerts = result.toObjects(SafetyAlert::class.java)
-
-                // FILTER: Remove 'CANCELED' alerts and Sort by timestamp
                 _alertHistory.value = alerts
                     .filter { it.status != "CANCELED" }
                     .sortedByDescending { it.timestamp }
             }
             .addOnFailureListener { e -> Log.e("HISTORY", "Error fetching history: ${e.message}") }
+    }
+
+    // --- MONITOR ALERTS (For Monitor Dashboard) ---
+    fun fetchMonitorAlerts(protectedIds: List<String>) {
+        if (protectedIds.isEmpty()) return
+
+        // Remove previous listener if exists
+        monitorAlertsListener?.remove()
+
+        val safeIds = protectedIds.take(10)
+
+        // Simplified query: Fetch all by ID, filter 'CANCELED' locally.
+        monitorAlertsListener = db.collection("alerts")
+            .whereIn("protectedId", safeIds)
+            .addSnapshotListener { snapshots, e ->
+                if (e != null) {
+                    Log.e("MONITOR", "Error listening to alerts", e)
+                    return@addSnapshotListener
+                }
+                if (snapshots != null) {
+                    val alerts = snapshots.toObjects(SafetyAlert::class.java)
+                    // Local filtering and sorting
+                    val activeAlerts = alerts
+                        .filter { it.status != "CANCELED" }
+                        .sortedByDescending { it.timestamp }
+
+                    _monitorAlerts.value = activeAlerts
+                }
+            }
+    }
+
+    fun getAlert(alertId: String) {
+        _selectedAlert.value = null
+        db.collection("alerts").document(alertId).addSnapshotListener { doc, e ->
+            if (doc != null && doc.exists()) {
+                _selectedAlert.value = doc.toObject(SafetyAlert::class.java)
+            }
+        }
+    }
+
+    fun resolveAlert(alertId: String) {
+        db.collection("alerts").document(alertId).update("status", "RESOLVED")
     }
 
     // --- RULES MANAGEMENT ---
@@ -151,7 +225,8 @@ class AuthViewModel : ViewModel() {
     }
 
     private fun startListeningToRules(userId: String) {
-        db.collection("rules")
+        rulesListener?.remove()
+        rulesListener = db.collection("rules")
             .whereEqualTo("protectedId", userId)
             .whereEqualTo("isActive", true)
             .addSnapshotListener { snapshots, e ->
@@ -428,6 +503,8 @@ class AuthViewModel : ViewModel() {
     }
 
     fun signOut() {
+        monitorAlertsListener?.remove()
+        rulesListener?.remove()
         auth.signOut()
         _currentUser.value = null
         _authState.value = AuthState.Idle
@@ -435,6 +512,12 @@ class AuthViewModel : ViewModel() {
         isAlertActive = false
         _showCountdown.value = false
         currentAlertId = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        monitorAlertsListener?.remove()
+        rulesListener?.remove()
     }
 }
 

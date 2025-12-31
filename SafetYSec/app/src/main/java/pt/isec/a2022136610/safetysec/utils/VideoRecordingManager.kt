@@ -14,6 +14,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.UUID
 
 class VideoRecordingManager(private val context: Context) {
 
@@ -91,7 +92,7 @@ class VideoRecordingManager(private val context: Context) {
                         // Pára automaticamente daqui a 30s
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                             stopRecordingAndUpload(onRecordingEnd, onVideoUploaded)
-                        }, 30000)
+                        }, 5000)
                     }
                     is VideoRecordEvent.Finalize -> {
                         onRecordingEnd() // Garante que a UI limpa se acabar por outro motivo
@@ -119,23 +120,29 @@ class VideoRecordingManager(private val context: Context) {
     private fun uploadVideoToFirebase(fileUri: Uri, onUrlReady: (String) -> Unit) {
         Toast.makeText(context, "Sending emergency recording...", Toast.LENGTH_SHORT).show()
 
-        val ref = storage.reference.child("alert_videos/${System.currentTimeMillis()}.mp4")
+        // FIX 1: Ensure unique filename to prevent collisions/caching issues
+        val uniqueName = "alert_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}.mp4"
+        val ref = storage.reference.child("alert_videos").child(uniqueName)
 
-        // Adicionar metadados para garantir que é tratado como vídeo
         val metadata = StorageMetadata.Builder()
             .setContentType("video/mp4")
             .build()
 
         ref.putFile(fileUri, metadata)
-            .addOnSuccessListener {
-                ref.downloadUrl.addOnSuccessListener { uri ->
+            .addOnSuccessListener { taskSnapshot ->
+                // FIX 2 (CRITICAL): Use taskSnapshot.metadata?.reference to get the URL.
+                // Do NOT reuse 'ref' here, as it can cause the "Object does not exist" error
+                // if there is any mismatch in bucket configuration.
+                taskSnapshot.metadata?.reference?.downloadUrl?.addOnSuccessListener { uri ->
                     Log.d("VIDEO", "Upload Sucesso! URL: $uri")
                     onUrlReady(uri.toString())
+                }?.addOnFailureListener { e ->
+                    Log.e("VIDEO", "Upload OK but failed to get URL: ${e.message}")
+                    Toast.makeText(context, "Error getting video link: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
             .addOnFailureListener {
                 Log.e("VIDEO", "Falha no upload", it)
-                // Mostra o erro específico no Toast
                 Toast.makeText(context, "Falha no envio: ${it.message}", Toast.LENGTH_LONG).show()
             }
     }
