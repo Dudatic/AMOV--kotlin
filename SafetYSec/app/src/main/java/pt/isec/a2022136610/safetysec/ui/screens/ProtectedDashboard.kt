@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -40,11 +41,9 @@ fun ProtectedDashboard(
     val showCountdown by viewModel.showCountdown.collectAsState()
     var showCodeDialog by remember { mutableStateOf(false) }
 
-    // UI state for PIN change
     var showPinDialog by remember { mutableStateOf(false) }
     var newPinInput by remember { mutableStateOf("") }
 
-    // Estado para controlar a visibilidade da gravação
     var isRecording by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -70,14 +69,11 @@ fun ProtectedDashboard(
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // CAMERA PREVIEW
-        // Se estiver a gravar: Ecrã inteiro + Borda Branca
-        // Se não: Pequeno e invisível (para manter a Surface ativa)
         val cameraModifier = if (isRecording) {
             Modifier
                 .fillMaxSize()
                 .border(4.dp, Color.White)
-                .padding(4.dp) // Padding interno para a borda não cortar o video
+                .padding(4.dp)
                 .align(Alignment.Center)
         } else {
             Modifier
@@ -94,8 +90,6 @@ fun ProtectedDashboard(
             )
         }
 
-        // Conteúdo Normal (Escondido se estiver a gravar para não tapar o vídeo, ou usar Z-Index)
-        // O user pediu "cover most of the screen", então sobrepomos o vídeo.
         if (!isRecording) {
             Column(
                 modifier = Modifier
@@ -104,12 +98,26 @@ fun ProtectedDashboard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.mode_protected), style = MaterialTheme.typography.labelLarge)
-                    Text(stringResource(R.string.hello_user, userName), style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Badge(containerColor = Color.Green) {
-                        Text(stringResource(R.string.protection_active), color = Color.Black, modifier = Modifier.padding(4.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(stringResource(R.string.mode_protected), style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            stringResource(R.string.hello_user, userName),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Badge(containerColor = Color.Green) {
+                            Text(stringResource(R.string.protection_active), color = Color.Black, modifier = Modifier.padding(4.dp))
+                        }
                     }
                 }
 
@@ -145,18 +153,16 @@ fun ProtectedDashboard(
                         }
                     }
 
-                    // New Button: Change PIN
                     OutlinedButton(onClick = { showPinDialog = true }) {
                         Icon(Icons.Default.Lock, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
-                        Text("Change PIN")
+                        Text(stringResource(R.string.btn_change_pin))
                     }
                 }
             }
         } else {
-            // Indicador de Gravação
             Text(
-                "RECORDING EMERGENCY VIDEO...",
+                stringResource(R.string.rec_emergency_msg),
                 color = Color.Red,
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 48.dp)
@@ -175,10 +181,10 @@ fun ProtectedDashboard(
         if (showPinDialog) {
             AlertDialog(
                 onDismissRequest = { showPinDialog = false },
-                title = { Text("Update Cancel PIN") },
+                title = { Text(stringResource(R.string.title_update_pin)) },
                 text = {
                     Column {
-                        Text("Enter new 4-digit PIN:")
+                        Text(stringResource(R.string.prompt_new_pin))
                         OutlinedTextField(
                             value = newPinInput,
                             onValueChange = { if (it.length <= 4) newPinInput = it },
@@ -191,29 +197,28 @@ fun ProtectedDashboard(
                     Button(onClick = {
                         if (newPinInput.length == 4) {
                             viewModel.updateCancelPin(newPinInput)
-                            Toast.makeText(context, "PIN Updated", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.msg_pin_updated), Toast.LENGTH_SHORT).show()
                             showPinDialog = false
                             newPinInput = ""
                         } else {
-                            Toast.makeText(context, "PIN must be 4 digits", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.err_pin_digits), Toast.LENGTH_SHORT).show()
                         }
-                    }) { Text("Update") }
+                    }) { Text(stringResource(R.string.btn_update)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showPinDialog = false }) { Text("Cancel") }
+                    TextButton(onClick = { showPinDialog = false }) { Text(stringResource(R.string.btn_cancel)) }
                 }
             )
         }
 
         if (showCountdown) {
             CountdownAlert(
-                reason = "Alert in progress...",
+                reason = stringResource(R.string.alert_progress),
                 onCancel = { pin -> viewModel.verifyPinAndCancel(pin) },
                 onTimeout = {
                     viewModel.executeFinalAlert()
-                    Toast.makeText(context, "ALERT SENT! RECORDING...", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.alert_sent_rec), Toast.LENGTH_LONG).show()
 
-                    // Iniciar Gravação
                     videoManager.startRecording30Seconds(
                         onRecordingStart = { isRecording = true },
                         onRecordingEnd = { isRecording = false },

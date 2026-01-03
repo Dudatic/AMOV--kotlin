@@ -4,7 +4,6 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-// IMPORT ESSENCIAL ADICIONADO:
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +45,7 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(stringResource(R.string.login_title), style = MaterialTheme.typography.headlineLarge)
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
         Spacer(Modifier.height(32.dp))
 
         OutlinedTextField(

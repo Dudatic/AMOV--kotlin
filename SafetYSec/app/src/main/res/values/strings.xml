@@ -1,71 +1,120 @@
 <resources>
     <string name="app_name">SafetYSec</string>
 
-    <string name="login_title">SafetYSec Login</string>
-    <string name="email_label">Email</string>
-    <string name="password_label">Password</string>
+    <string name="btn_ok">OK</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_close">Close</string>
+    <string name="btn_resolve">Resolve</string>
+    <string name="btn_ignore">Ignore</string>
+    <string name="btn_update">Update</string>
+    <string name="btn_back">Back</string>
+
+    <string name="login_title">SafetYSec</string>
     <string name="login_button">Login</string>
     <string name="register_link">No account? Register here</string>
-    <string name="register_title">Create Account</string>
+    <string name="register_title">Register</string>
     <string name="name_label">Name</string>
+    <string name="email_label">Email</string>
+    <string name="password_label">Password</string>
+    <string name="register_button">Register</string>
+    <string name="login_error">Login Error</string>
+    <string name="reg_error">Registration Error</string>
+    <string name="save_profile_error">Error saving profile</string>
+    <string name="reg_success">Registration Successful</string>
+    <string name="select_role">Select Role:</string>
     <string name="role_monitor">Monitor</string>
     <string name="role_protected">Protected</string>
-    <string name="register_button">Register</string>
-    <string name="back_to_login">Back to Login</string>
+    <string name="role_both">Both</string>
+
+    <string name="err_monitor_self">You cannot monitor yourself.</string>
+    <string name="err_invalid_code">Invalid Code</string>
+    <string name="err_verification">Verification Error</string>
+    <string name="err_pin_digits">PIN must be 4 digits</string>
+    <string name="err_pin_update">Failed to update PIN</string>
+    <string name="err_account_not_found">Account data not found. Please register again.</string>
+    <string name="err_db_connection">Database connection failed.</string>
+    <string name="msg_pin_updated">PIN Updated Successfully</string>
+
+    <string name="perm_title">Permissions Required</string>
+    <string name="perm_desc">For your safety, the application needs you to enable the following permissions:</string>
+    <string name="perm_list">• Location (GPS)\n• Camera\n• Notifications\n• Physical Activity</string>
+    <string name="perm_btn_settings">Enable in Settings</string>
+    <string name="perm_btn_refresh">I\'ve enabled it, refresh</string>
+    <string name="def_user_monitor">Monitor</string>
+    <string name="def_user_protected">Protected</string>
+    <string name="def_user_generic">User</string>
+
+    <string name="hello_user">Hi, %1$s</string>
+    <string name="code_dialog_title">Association Code</string>
 
     <string name="mode_protected">Protected Mode</string>
-    <string name="hello_user">Hi, %1$s</string>
     <string name="protection_active">Protection Active</string>
     <string name="sos_button">SOS</string>
     <string name="sos_instruction">\t\t\tPress in emergency\n(Recording 30s after alert)</string>
     <string name="btn_associate">Link Monitor</string>
     <string name="btn_history">History</string>
+    <string name="btn_change_pin">Change PIN</string>
+    <string name="title_update_pin">Update Cancel PIN</string>
+    <string name="prompt_new_pin">Enter new 4-digit PIN:</string>
+    <string name="alert_progress">Alert in progress…</string>
+    <string name="alert_sent_rec">ALERT SENT! RECORDING…</string>
+    <string name="rec_emergency_msg">RECORDING EMERGENCY VIDEO…</string>
+
     <string name="monitor_dashboard">Monitor Dashboard</string>
-    <string name="my_proteges">My Protegés</string>
-    <string name="no_proteges">No protegés associated yet.</string>
-    <string name="associate_new">Link New Protegé</string>
-    <string name="location_ok">📍 Location OK</string>
-    <string name="no_location">No location</string>
-
-    <string name="location_title">Location</string>
-    <string name="last_known_location_label">Last Known Position:</string>
-    <string name="waiting_gps">Waiting for GPS signal...</string>
-    <string name="btn_google_maps">Open in Google Maps App</string>
-    <string name="back_desc">Back</string>
-
-    <string name="config_geofence">Configure Geofence</string>
-    <string name="protected_user">Protected: %1$s</string>
-    <string name="set_safe_zone">Set Safe Zone</string>
-    <string name="geofence_instruction">The fence will be created using the user\'s LAST KNOWN LOCATION as the center.</string>
-    <string name="current_center">Current Center: %1$s, %2$s</string>
-    <string name="radius_label">Radius (meters)</string>
-    <string name="btn_activate_fence">ACTIVATE FENCE</string>
-    <string name="error_location">Warning: Unknown location. Cannot create fence.</string>
-    <string name="success_fence">Geofence activated successfully!</string>
-
-    <string name="code_dialog_title">Association Code</string>
-    <string name="enter_code_instruction">Enter code generated by Protected user:</string>
-    <string name="btn_close">Close</string>
-    <string name="btn_cancel">Cancel</string>
-    <string name="btn_ok">OK</string>
-    <string name="alert_zone">ZONE ALERT</string>
-    <string name="alert_fall">⚠️ FALL DETECTED ⚠️</string>
-    <string name="alert_sos">SOS REQUEST</string>
-    <string name="btn_resolve">VIEW &amp; RESOLVE</string>
-    <string name="btn_ignore">IGNORE</string>
-
     <string name="statistics_title">Statistics</string>
-    <string name="stat_active_alerts">Active Alerts</string>
     <string name="stat_tracked_users">Tracked Users</string>
+    <string name="stat_active_alerts">Active Alerts</string>
+    <string name="my_proteges">My Protégés</string>
+    <string name="no_proteges">No protégés associated yet.</string>
+    <string name="location_ok">Location: OK</string>
+    <string name="no_location">Location: Unknown</string>
+    <string name="associate_new">Associate New</string>
+    <string name="enter_code_instruction">Enter the code provided by the protected user:</string>
+    <string name="recent_alerts">Recent Alerts</string>
+    <string name="no_active_alerts">No active alerts</string>
+    <string name="status_active">ACTIVE</string>
+    <string name="alert_details_missing">Alert Details Missing</string>
+
+    <string name="alert_zone">Safe Zone Alert</string>
+    <string name="alert_fall">Fall Detected</string>
+    <string name="alert_accident">Accident Detected</string>
+    <string name="alert_sos">SOS Alert</string>
+    <string name="reason_fall">FALL DETECTED</string>
+    <string name="reason_accident">ACCIDENT DETECTED</string>
+    <string name="reason_zone">LEFT SAFE ZONE: %1$s</string>
+    <string name="reason_speed">SPEEDING: %1$s km/h</string>
+    <string name="reason_inactivity">INACTIVITY: %1$d min</string>
+    <string name="reason_panic">Panic Button Pressed</string>
+    <string name="reason_emergency">Emergency</string>
+    <string name="reason_test">Test/No Rule</string>
+
+    <string name="video_sending">Sending emergency recording…</string>
+    <string name="video_error_link">Error getting video link: %1$s</string>
+    <string name="video_upload_failed">Upload Failed: %1$s</string>
+
     <string name="history_title">Alert History</string>
     <string name="no_history">No past alerts found.</string>
-
+    <string name="location_title">Location</string>
+    <string name="back_desc">Back</string>
+    <string name="last_known_location_label">Last Known Location</string>
+    <string name="waiting_gps">Waiting for GPS…</string>
+    <string name="btn_google_maps">Open in Google Maps</string>
+    <string name="config_geofence">Configure Geofence</string>
+    <string name="protected_user">User: %1$s</string>
+    <string name="set_safe_zone">Set Safe Zone</string>
+    <string name="geofence_instruction">Creates a circular zone around the current location.</string>
+    <string name="current_center">Center: %1$s, %2$s</string>
+    <string name="error_location">Location unknown</string>
+    <string name="radius_label">Radius (m)</string>
+    <string name="success_fence">Geofence Created!</string>
+    <string name="btn_activate_fence">Activate Fence</string>
     <string name="manage_rules">Manage Rules</string>
     <string name="rule_speed">Max Speed (km/h)</string>
-    <string name="rule_inactivity">Inactivity Limit (min)</string>
-    <string name="btn_save_speed">Set Speed Rule</string>
-    <string name="btn_save_inactivity">Set Inactivity Rule</string>
+    <string name="rule_inactivity">Inactivity (min)</string>
     <string name="time_start">Start (HH:mm)</string>
     <string name="time_end">End (HH:mm)</string>
-    <string name="btn_back">Back</string>
+    <string name="set_rules">Set Rules</string>
+    <string name="speed_control">Speed Control</string>
+    <string name="inactivity_monitor">Inactivity Monitor</string>
+    <string name="active_hours">Active Hours</string>
 </resources>

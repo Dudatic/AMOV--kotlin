@@ -1,8 +1,9 @@
 package pt.isec.a2022136610.safetysec.viewmodel
 
+import android.app.Application
 import android.location.Location
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldPath
@@ -10,9 +11,9 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import pt.isec.a2022136610.safetysec.R
 import pt.isec.a2022136610.safetysec.model.RuleType
 import pt.isec.a2022136610.safetysec.model.SafetyAlert
 import pt.isec.a2022136610.safetysec.model.SafetyRule
@@ -21,9 +22,13 @@ import pt.isec.a2022136610.safetysec.model.UserRole
 import java.util.Calendar
 import kotlin.random.Random
 
-class AuthViewModel : ViewModel() {
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
+
+    // Helper to get strings from Context
+    private fun getString(resId: Int): String = getApplication<Application>().getString(resId)
+    private fun getString(resId: Int, vararg args: Any): String = getApplication<Application>().getString(resId, *args)
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState
@@ -43,11 +48,9 @@ class AuthViewModel : ViewModel() {
     private val _alertHistory = MutableStateFlow<List<SafetyAlert>>(emptyList())
     val alertHistory: StateFlow<List<SafetyAlert>> = _alertHistory
 
-    // New: Monitor Alerts
     private val _monitorAlerts = MutableStateFlow<List<SafetyAlert>>(emptyList())
     val monitorAlerts: StateFlow<List<SafetyAlert>> = _monitorAlerts
 
-    // New: Single Alert for Details
     private val _selectedAlert = MutableStateFlow<SafetyAlert?>(null)
     val selectedAlert: StateFlow<SafetyAlert?> = _selectedAlert
 
@@ -66,7 +69,6 @@ class AuthViewModel : ViewModel() {
     private var lastMovementTime: Long = System.currentTimeMillis()
     private var lastKnownLocation: Location? = null
 
-    // Listener registrations to avoid leaks and duplication
     private var monitorAlertsListener: ListenerRegistration? = null
     private var rulesListener: ListenerRegistration? = null
 
@@ -75,10 +77,25 @@ class AuthViewModel : ViewModel() {
         _authState.value = AuthState.Loading
         auth.signInWithEmailAndPassword(email, pass)
             .addOnSuccessListener {
-                _authState.value = AuthState.Success
-                loadCurrentUser()
+                val userId = auth.currentUser?.uid
+                if (userId != null) {
+                    db.collection("users").document(userId).get()
+                        .addOnSuccessListener { document ->
+                            if (document.exists()) {
+                                _authState.value = AuthState.Success
+                                loadCurrentUser()
+                            } else {
+                                auth.signOut()
+                                _authState.value = AuthState.Error(getString(R.string.err_account_not_found))
+                            }
+                        }
+                        .addOnFailureListener {
+                            auth.signOut()
+                            _authState.value = AuthState.Error(getString(R.string.err_db_connection))
+                        }
+                }
             }
-            .addOnFailureListener { e -> _authState.value = AuthState.Error(e.message ?: "Login Error") }
+            .addOnFailureListener { _authState.value = AuthState.Error(getString(R.string.login_error)) }
     }
 
     // --- REGISTER ---
@@ -94,9 +111,9 @@ class AuthViewModel : ViewModel() {
                         _currentUser.value = newUser
                         _authState.value = AuthState.Success
                     }
-                    .addOnFailureListener { _authState.value = AuthState.Error("Error saving profile") }
+                    .addOnFailureListener { _authState.value = AuthState.Error(getString(R.string.save_profile_error)) }
             }
-            .addOnFailureListener { e -> _authState.value = AuthState.Error(e.message ?: "Registration Error") }
+            .addOnFailureListener { _authState.value = AuthState.Error(getString(R.string.reg_error)) }
     }
 
     // --- LOAD DATA ---
@@ -110,7 +127,7 @@ class AuthViewModel : ViewModel() {
 
                     if (user != null && user.protectedIds.isNotEmpty()) {
                         fetchAssociatedUsers(user.protectedIds)
-                        fetchMonitorAlerts(user.protectedIds) // Fetch alerts for monitor
+                        fetchMonitorAlerts(user.protectedIds)
                     }
 
                     if (user != null && (user.role == UserRole.PROTECTED || user.role == UserRole.BOTH)) {
@@ -124,26 +141,23 @@ class AuthViewModel : ViewModel() {
     fun updateCancelPin(newPin: String) {
         val userId = auth.currentUser?.uid ?: return
         if (newPin.length != 4 || !newPin.all { it.isDigit() }) {
-            _authState.value = AuthState.Error("PIN must be 4 digits")
+            _authState.value = AuthState.Error(getString(R.string.err_pin_digits))
             return
         }
 
         db.collection("users").document(userId).update("cancelPin", newPin)
             .addOnSuccessListener {
-                // Update local user object immediately for UI reflection
                 _currentUser.value = _currentUser.value?.copy(cancelPin = newPin)
-                // Just to trigger a success toast if needed, but keeping state clean is better
                 Log.d("AUTH", "PIN Updated Successfully")
             }
             .addOnFailureListener {
-                _authState.value = AuthState.Error("Failed to update PIN")
+                _authState.value = AuthState.Error(getString(R.string.err_pin_update))
             }
     }
 
-    // --- HISTORY (For Protected) ---
+    // --- HISTORY ---
     fun fetchAlertHistory() {
         val userId = auth.currentUser?.uid ?: return
-
         db.collection("alerts")
             .whereEqualTo("protectedId", userId)
             .limit(50)
@@ -157,16 +171,12 @@ class AuthViewModel : ViewModel() {
             .addOnFailureListener { e -> Log.e("HISTORY", "Error fetching history: ${e.message}") }
     }
 
-    // --- MONITOR ALERTS (For Monitor Dashboard) ---
+    // --- MONITOR ALERTS ---
     fun fetchMonitorAlerts(protectedIds: List<String>) {
         if (protectedIds.isEmpty()) return
-
-        // Remove previous listener if exists
         monitorAlertsListener?.remove()
-
         val safeIds = protectedIds.take(10)
 
-        // Simplified query: Fetch all by ID, filter 'CANCELED' locally.
         monitorAlertsListener = db.collection("alerts")
             .whereIn("protectedId", safeIds)
             .addSnapshotListener { snapshots, e ->
@@ -176,11 +186,9 @@ class AuthViewModel : ViewModel() {
                 }
                 if (snapshots != null) {
                     val alerts = snapshots.toObjects(SafetyAlert::class.java)
-                    // Local filtering and sorting
                     val activeAlerts = alerts
                         .filter { it.status != "CANCELED" }
                         .sortedByDescending { it.timestamp }
-
                     _monitorAlerts.value = activeAlerts
                 }
             }
@@ -213,15 +221,8 @@ class AuthViewModel : ViewModel() {
     fun saveRule(rule: SafetyRule) {
         val ruleId = if (rule.id.isEmpty()) db.collection("rules").document().id else rule.id
         val ruleData = rule.copy(id = ruleId)
-
         db.collection("rules").document(ruleId).set(ruleData)
-            .addOnSuccessListener {
-                Log.d("RULES", "Rule saved: $ruleId")
-                loadRulesForUser(rule.protectedId)
-            }
-            .addOnFailureListener { e ->
-                Log.e("RULES", "Error saving rule: ${e.message}")
-            }
+            .addOnSuccessListener { loadRulesForUser(rule.protectedId) }
     }
 
     private fun startListeningToRules(userId: String) {
@@ -233,7 +234,6 @@ class AuthViewModel : ViewModel() {
                 if (e != null) return@addSnapshotListener
                 if (snapshots != null) {
                     myRules = snapshots.toObjects(SafetyRule::class.java)
-                    Log.d("RULES", "Active rules updated: ${myRules.size}")
                 }
             }
     }
@@ -260,23 +260,27 @@ class AuthViewModel : ViewModel() {
         val code = Random.nextInt(100000, 999999).toString()
         val userId = auth.currentUser?.uid ?: return
         val codeData = hashMapOf("protectedId" to userId, "timestamp" to FieldValue.serverTimestamp())
-
         db.collection("codes").document(code).set(codeData)
             .addOnSuccessListener { _generatedCode.value = code }
     }
 
+    // --- ASSOCIATION LOGIC ---
     fun connectWithProtege(code: String) {
         val monitorId = auth.currentUser?.uid ?: return
         db.collection("codes").document(code).get()
             .addOnSuccessListener { document ->
                 val protectedId = document.getString("protectedId")
                 if (protectedId != null) {
-                    performAssociation(monitorId, protectedId, code)
+                    if (protectedId == monitorId) {
+                        _authState.value = AuthState.Error(getString(R.string.err_monitor_self))
+                    } else {
+                        performAssociation(monitorId, protectedId, code)
+                    }
                 } else {
-                    _authState.value = AuthState.Error("Invalid Code")
+                    _authState.value = AuthState.Error(getString(R.string.err_invalid_code))
                 }
             }
-            .addOnFailureListener { _authState.value = AuthState.Error("Verification Error") }
+            .addOnFailureListener { _authState.value = AuthState.Error(getString(R.string.err_verification)) }
     }
 
     private fun performAssociation(monitorId: String, protectedId: String, codeUsed: String) {
@@ -284,7 +288,6 @@ class AuthViewModel : ViewModel() {
         batch.update(db.collection("users").document(protectedId), "monitorIds", FieldValue.arrayUnion(monitorId))
         batch.update(db.collection("users").document(monitorId), "protectedIds", FieldValue.arrayUnion(protectedId))
         batch.delete(db.collection("codes").document(codeUsed))
-
         batch.commit().addOnSuccessListener {
             _authState.value = AuthState.Success
             loadCurrentUser()
@@ -294,16 +297,13 @@ class AuthViewModel : ViewModel() {
     // --- SENSOR LOGIC ---
     private fun isRuleActiveNow(rule: SafetyRule): Boolean {
         if (!rule.isActive) return false
-
         val now = Calendar.getInstance()
         val currentHour = now.get(Calendar.HOUR_OF_DAY)
         val currentMinute = now.get(Calendar.MINUTE)
         val currentDay = now.get(Calendar.DAY_OF_WEEK)
-
         if (rule.activeDays != null && rule.activeDays.isNotEmpty()) {
             if (!rule.activeDays.contains(currentDay)) return false
         }
-
         if (rule.startTime != null && rule.endTime != null) {
             try {
                 val (startH, startM) = rule.startTime.split(":").map { it.toInt() }
@@ -311,15 +311,12 @@ class AuthViewModel : ViewModel() {
                 val nowMins = currentHour * 60 + currentMinute
                 val startMins = startH * 60 + startM
                 val endMins = endH * 60 + endM
-
                 if (startMins <= endMins) {
                     if (nowMins < startMins || nowMins > endMins) return false
                 } else {
                     if (nowMins < startMins && nowMins > endMins) return false
                 }
-            } catch (e: Exception) {
-                Log.e("RULES", "Time parse error")
-            }
+            } catch (e: Exception) { Log.e("RULES", "Time parse error") }
         }
         return true
     }
@@ -327,30 +324,22 @@ class AuthViewModel : ViewModel() {
     fun handleFallDetected() {
         if (isAlertActive) return
         val activeRule = myRules.firstOrNull { it.type == RuleType.FALL_DETECTION && isRuleActiveNow(it) }
-        if (activeRule != null) {
-            triggerCountdown("FALL DETECTED (${activeRule.name})")
-        } else {
-            triggerCountdown("FALL DETECTED (Test/No Rule)")
-        }
+        val msg = if (activeRule != null) getString(R.string.reason_fall) + " (${activeRule.name})" else getString(R.string.reason_fall) + " (${getString(R.string.reason_test)})"
+        triggerCountdown(msg)
     }
 
     fun handleAccidentDetected() {
         if (isAlertActive) return
         val activeRule = myRules.firstOrNull { it.type == RuleType.ACCIDENT && isRuleActiveNow(it) }
-        if (activeRule != null) {
-            triggerCountdown("ACCIDENT DETECTED (${activeRule.name})")
-        } else {
-            triggerCountdown("ACCIDENT DETECTED (Test/No Rule)")
-        }
+        val msg = if (activeRule != null) getString(R.string.reason_accident) + " (${activeRule.name})" else getString(R.string.reason_accident) + " (${getString(R.string.reason_test)})"
+        triggerCountdown(msg)
     }
 
     fun updateUserLocation(location: Location) {
         val userId = auth.currentUser?.uid ?: return
         val geoPoint = GeoPoint(location.latitude, location.longitude)
-
         db.collection("users").document(userId).update("lastLocation", geoPoint)
         checkInactivityRules(location)
-
         if (isAlertActive) return
         checkGeofenceRules(location)
         checkSpeedRules(location)
@@ -367,7 +356,7 @@ class AuthViewModel : ViewModel() {
                     results
                 )
                 if (results[0] > rule.geofenceRadiusMeters) {
-                    triggerCountdown(reason = "LEFT SAFE ZONE: ${rule.name}")
+                    triggerCountdown(getString(R.string.reason_zone, rule.name))
                     return
                 }
             }
@@ -380,7 +369,7 @@ class AuthViewModel : ViewModel() {
             if (rule.type == RuleType.MAX_SPEED && rule.maxSpeedKmh != null) {
                 if (!isRuleActiveNow(rule)) continue
                 if (currentSpeedKmh > rule.maxSpeedKmh) {
-                    triggerCountdown(reason = "SPEEDING: ${String.format("%.1f", currentSpeedKmh)} km/h")
+                    triggerCountdown(getString(R.string.reason_speed, String.format("%.1f", currentSpeedKmh)))
                     return
                 }
             }
@@ -395,13 +384,12 @@ class AuthViewModel : ViewModel() {
             }
         }
         lastKnownLocation = currentLocation
-
         for (rule in myRules) {
             if (rule.type == RuleType.INACTIVITY && rule.inactivityTimeMinutes != null) {
                 if (!isRuleActiveNow(rule)) continue
                 val inactiveDurationMinutes = (now - lastMovementTime) / 60000
                 if (inactiveDurationMinutes >= rule.inactivityTimeMinutes) {
-                    triggerCountdown(reason = "INACTIVITY: ${inactiveDurationMinutes} min")
+                    triggerCountdown(getString(R.string.reason_inactivity, inactiveDurationMinutes))
                     lastMovementTime = now
                     return
                 }
@@ -441,7 +429,6 @@ class AuthViewModel : ViewModel() {
         val user = _currentUser.value ?: return
         val reason = pendingAlertReason ?: "Unknown"
         val type = determineRuleType(reason)
-
         val alertLog = SafetyAlert(
             id = db.collection("alerts").document().id,
             protectedId = user.id,
@@ -458,14 +445,13 @@ class AuthViewModel : ViewModel() {
         _showCountdown.value = false
         val user = _currentUser.value ?: return
         val location = user.lastLocation
-        val reason = pendingAlertReason ?: "Emergency"
+        val reason = pendingAlertReason ?: getString(R.string.reason_emergency)
         val type = determineRuleType(reason)
 
         if (currentAlertId != null && videoUrl != null) {
             db.collection("alerts").document(currentAlertId!!).update("videoUrl", videoUrl)
             return
         }
-
         val newAlertId = db.collection("alerts").document().id
         currentAlertId = newAlertId
         val alert = SafetyAlert(
@@ -481,7 +467,7 @@ class AuthViewModel : ViewModel() {
         db.collection("alerts").document(alert.id).set(alert)
     }
 
-    fun startPanicButtonSequence() { triggerCountdown("Panic Button Pressed") }
+    fun startPanicButtonSequence() { triggerCountdown(getString(R.string.reason_panic)) }
 
     fun createGeofenceRule(protectedId: String, center: GeoPoint, radius: Double) {
         val monitorId = auth.currentUser?.uid ?: return

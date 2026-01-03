@@ -81,7 +81,7 @@ fun RuleManagementScreen(
         Column(modifier = Modifier.padding(paddingValues).padding(16.dp)) {
 
             // --- SPEED RULE ---
-            Text("Speed Control", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.speed_control))
             OutlinedTextField(
                 value = speedLimit,
                 onValueChange = { speedLimit = it },
@@ -93,7 +93,7 @@ fun RuleManagementScreen(
             Divider(modifier = Modifier.padding(vertical = 16.dp))
 
             // --- INACTIVITY RULE ---
-            Text("Inactivity Monitor", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.inactivity_monitor))
             OutlinedTextField(
                 value = inactivityLimit,
                 onValueChange = { inactivityLimit = it },
@@ -105,7 +105,7 @@ fun RuleManagementScreen(
             Spacer(Modifier.height(16.dp))
 
             // --- TIME SELECTION (Optional) ---
-            Text("Active Hours (Optional):", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.active_hours))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 
                 // Start Time
@@ -190,7 +190,7 @@ fun RuleManagementScreen(
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
-                Text("Set Rules")
+                Text(stringResource(R.string.set_rules))
             }
         }
     }
@@ -229,17 +229,16 @@ fun WheelTimePickerDialog(
     AlertDialog(
         onDismissRequest = onCancel,
         confirmButton = {
-            TextButton(onClick = { onConfirm(currentHour, currentMinute) }) { Text("OK") }
+            TextButton(onClick = { onConfirm(currentHour, currentMinute) }) { Text(stringResource(R.string.btn_ok)) }
         },
         dismissButton = {
-            TextButton(onClick = onCancel) { Text("Cancel") }
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.btn_cancel)) }
         },
         text = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Select Time", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(16.dp))
 
                 // Using AndroidView to wrap the native TimePicker in Spinner Mode

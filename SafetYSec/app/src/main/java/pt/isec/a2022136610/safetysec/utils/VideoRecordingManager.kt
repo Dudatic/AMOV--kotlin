@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
+import pt.isec.a2022136610.safetysec.R
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.UUID
@@ -22,24 +23,19 @@ class VideoRecordingManager(private val context: Context) {
     private var activeRecording: Recording? = null
     private val storage = FirebaseStorage.getInstance()
 
-    // 1. Iniciar a Câmara (Preview + Preparar Gravação)
+    // 1. Iniciar a Câmara
     fun startCamera(lifecycleOwner: LifecycleOwner, previewView: PreviewView) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-
-            // Preview (necessário para a câmara funcionar)
             val preview = androidx.camera.core.Preview.Builder().build().apply {
                 setSurfaceProvider(previewView.surfaceProvider)
             }
-
-            // Configurar Gravador (Baixa qualidade para upload rápido)
             val recorder = Recorder.Builder()
                 .setQualitySelector(QualitySelector.from(Quality.LOWEST))
                 .build()
             videoCapture = VideoCapture.withOutput(recorder)
-
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             try {
@@ -53,7 +49,7 @@ class VideoRecordingManager(private val context: Context) {
         }, ContextCompat.getMainExecutor(context))
     }
 
-    // 2. Gravar Vídeo (30s) e depois Upload
+    // 2. Gravar Vídeo (30s)
     fun startRecording30Seconds(
         onRecordingStart: () -> Unit,
         onRecordingEnd: () -> Unit,
@@ -61,7 +57,6 @@ class VideoRecordingManager(private val context: Context) {
     ) {
         val videoCapture = this.videoCapture ?: return
 
-        // Criar nome único para o ficheiro
         val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis())
         val contentValues = android.content.ContentValues().apply {
             put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
@@ -74,11 +69,9 @@ class VideoRecordingManager(private val context: Context) {
             .setContentValues(contentValues)
             .build()
 
-        // Iniciar Gravação
         activeRecording = videoCapture.output
             .prepareRecording(context, mediaStoreOutputOptions)
             .apply {
-                // Ativar áudio se houver permissão
                 if (androidx.core.content.PermissionChecker.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==
                     androidx.core.content.PermissionChecker.PERMISSION_GRANTED) {
                     withAudioEnabled()
@@ -89,14 +82,13 @@ class VideoRecordingManager(private val context: Context) {
                     is VideoRecordEvent.Start -> {
                         Log.d("VIDEO", "Gravação iniciada! A contar 30s...")
                         onRecordingStart()
-                        // Pára automaticamente daqui a 30s
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                             stopRecordingAndUpload(onRecordingEnd, onVideoUploaded)
-                        }, 5000)
+                        }, 3000)
                     }
                     is VideoRecordEvent.Finalize -> {
-                        onRecordingEnd() // Garante que a UI limpa se acabar por outro motivo
                         if (!recordEvent.hasError()) {
+                            onRecordingEnd()
                             val uri = recordEvent.outputResults.outputUri
                             Log.d("VIDEO", "Gravação terminada: $uri")
                             uploadVideoToFirebase(uri, onVideoUploaded)
@@ -104,6 +96,7 @@ class VideoRecordingManager(private val context: Context) {
                             activeRecording?.close()
                             activeRecording = null
                             Log.e("VIDEO", "Erro na gravação: ${recordEvent.error}")
+                            onRecordingEnd()
                         }
                     }
                 }
@@ -111,18 +104,20 @@ class VideoRecordingManager(private val context: Context) {
     }
 
     private fun stopRecordingAndUpload(onRecordingEnd: () -> Unit, onVideoUploaded: (String) -> Unit) {
-        activeRecording?.stop()
-        activeRecording = null
-        onRecordingEnd()
+        if (activeRecording != null) {
+            activeRecording?.stop()
+            activeRecording = null
+        }
     }
 
-    // 3. Upload para Firebase Storage e obter URL
+    // 3. Upload Corrigido
     private fun uploadVideoToFirebase(fileUri: Uri, onUrlReady: (String) -> Unit) {
-        Toast.makeText(context, "Sending emergency recording...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.video_sending), Toast.LENGTH_SHORT).show()
 
-        // FIX 1: Ensure unique filename to prevent collisions/caching issues
         val uniqueName = "alert_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}.mp4"
         val ref = storage.reference.child("alert_videos").child(uniqueName)
+
+        Log.d("VIDEO", "Attempting upload to bucket: ${storage.app.options.storageBucket} at path: ${ref.path}")
 
         val metadata = StorageMetadata.Builder()
             .setContentType("video/mp4")
@@ -130,20 +125,19 @@ class VideoRecordingManager(private val context: Context) {
 
         ref.putFile(fileUri, metadata)
             .addOnSuccessListener { taskSnapshot ->
-                // FIX 2 (CRITICAL): Use taskSnapshot.metadata?.reference to get the URL.
-                // Do NOT reuse 'ref' here, as it can cause the "Object does not exist" error
-                // if there is any mismatch in bucket configuration.
-                taskSnapshot.metadata?.reference?.downloadUrl?.addOnSuccessListener { uri ->
-                    Log.d("VIDEO", "Upload Sucesso! URL: $uri")
-                    onUrlReady(uri.toString())
-                }?.addOnFailureListener { e ->
-                    Log.e("VIDEO", "Upload OK but failed to get URL: ${e.message}")
-                    Toast.makeText(context, "Error getting video link: ${e.message}", Toast.LENGTH_LONG).show()
-                }
+                taskSnapshot.storage.downloadUrl
+                    .addOnSuccessListener { uri ->
+                        Log.d("VIDEO", "Upload Success! Public URL: $uri")
+                        onUrlReady(uri.toString())
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("VIDEO", "Upload finished, but failed to get URL: ${e.message}")
+                        Toast.makeText(context, context.getString(R.string.video_error_link, e.message), Toast.LENGTH_LONG).show()
+                    }
             }
             .addOnFailureListener {
-                Log.e("VIDEO", "Falha no upload", it)
-                Toast.makeText(context, "Falha no envio: ${it.message}", Toast.LENGTH_LONG).show()
+                Log.e("VIDEO", "Upload Failed completely", it)
+                Toast.makeText(context, context.getString(R.string.video_upload_failed, it.message), Toast.LENGTH_LONG).show()
             }
     }
 }
