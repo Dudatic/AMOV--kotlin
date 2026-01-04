@@ -1,5 +1,6 @@
 package pt.isec.a2022136610.safetysec.ui.screens
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,7 @@ import pt.isec.a2022136610.safetysec.viewmodel.AuthViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlertDetailsScreen(

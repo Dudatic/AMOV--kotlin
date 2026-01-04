@@ -84,7 +84,7 @@ class VideoRecordingManager(private val context: Context) {
                         onRecordingStart()
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                             stopRecordingAndUpload(onRecordingEnd, onVideoUploaded)
-                        }, 3000)
+                        }, 30000)
                     }
                     is VideoRecordEvent.Finalize -> {
                         if (!recordEvent.hasError()) {
