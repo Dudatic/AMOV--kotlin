@@ -3,6 +3,7 @@ package pt.isec.a2022136610.safetysec.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -12,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -25,6 +28,7 @@ import pt.isec.a2022136610.safetysec.utils.LocationHelper
 import pt.isec.a2022136610.safetysec.utils.PermissionHandler
 import pt.isec.a2022136610.safetysec.utils.hasAllPermissions
 import pt.isec.a2022136610.safetysec.utils.openAppSettings
+import pt.isec.a2022136610.safetysec.viewmodel.AuthState
 import pt.isec.a2022136610.safetysec.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,12 +38,22 @@ fun HomeScreen(
     viewModel: AuthViewModel = viewModel()
 ) {
     val currentUser by viewModel.currentUser.collectAsState()
+    val authState by viewModel.authState.collectAsState()
     val context = LocalContext.current
 
     var isMonitorMode by remember { mutableStateOf(true) }
     var permissionsGranted by remember { mutableStateOf(hasAllPermissions(context)) }
     val locationHelper = remember { LocationHelper(context) }
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    var showProfileDialog by remember { mutableStateOf(false) }
+
+    // Show toast on auth error
+    LaunchedEffect(authState) {
+        if (authState is pt.isec.a2022136610.safetysec.viewmodel.AuthState.Error) {
+            android.widget.Toast.makeText(context, (authState as pt.isec.a2022136610.safetysec.viewmodel.AuthState.Error).message, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -85,12 +99,16 @@ fun HomeScreen(
                             Text(
                                 text = if (isMonitorMode) "M" else "P",
                                 style = MaterialTheme.typography.labelSmall,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showProfileDialog = true }) {
+                        Icon(Icons.Default.AccountCircle, contentDescription = "Profile")
+                    }
+
                     IconButton(onClick = {
                         locationHelper.stopLocationUpdates()
                         viewModel.signOut()
@@ -147,7 +165,8 @@ fun HomeScreen(
                     UserRole.PROTECTED -> {
                         ProtectedDashboard(
                             userName = currentUser?.name ?: stringResource(R.string.def_user_protected),
-                            onHistoryClick = { navController.navigate("history") }
+                            onHistoryClick = { navController.navigate("history") },
+                            onActiveRulesClick = { navController.navigate("active_rules") }
                         )
                     }
                     else -> {
@@ -157,6 +176,56 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+
+        if (showProfileDialog) {
+            var nameInput by remember { mutableStateOf(currentUser?.name ?: "") }
+            var newPassInput by remember { mutableStateOf("") }
+            var currentPassInput by remember { mutableStateOf("") }
+
+            AlertDialog(
+                onDismissRequest = { showProfileDialog = false },
+                title = { Text(stringResource(R.string.profile_title)) },
+                text = {
+                    Column {
+                        OutlinedTextField(
+                            value = nameInput,
+                            onValueChange = { nameInput = it },
+                            label = { Text(stringResource(R.string.name_label)) },
+                            singleLine = true
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = newPassInput,
+                            onValueChange = { newPassInput = it },
+                            label = { Text(stringResource(R.string.label_new_password)) },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = currentPassInput,
+                            onValueChange = { currentPassInput = it },
+                            label = { Text(stringResource(R.string.label_current_password)) },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        viewModel.updateProfile(nameInput, newPassInput, currentPassInput)
+                        showProfileDialog = false
+                    }) {
+                        Text(stringResource(R.string.btn_update))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showProfileDialog = false }) {
+                        Text(stringResource(R.string.btn_cancel))
+                    }
+                }
+            )
         }
     }
 }

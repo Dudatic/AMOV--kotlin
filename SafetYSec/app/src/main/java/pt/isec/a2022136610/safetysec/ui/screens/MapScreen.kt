@@ -3,6 +3,8 @@ package pt.isec.a2022136610.safetysec.ui.screens
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Map
@@ -30,9 +32,7 @@ fun MapScreen(
     val context = LocalContext.current
     val targetUser by viewModel.targetUser.collectAsState()
 
-    LaunchedEffect(userId) {
-        viewModel.loadTargetUser(userId)
-    }
+    LaunchedEffect(userId) { viewModel.loadTargetUser(userId) }
 
     Scaffold(
         topBar = {
@@ -46,76 +46,102 @@ fun MapScreen(
             )
         }
     ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
+        BoxWithConstraints(modifier = Modifier.padding(paddingValues).fillMaxSize().padding(16.dp)) {
+            val isLandscape = maxWidth > maxHeight
+
             if (targetUser != null) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(80.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        targetUser!!.name,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        targetUser!!.email,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-
-                    Spacer(Modifier.height(32.dp))
-
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(stringResource(R.string.last_known_location_label), style = MaterialTheme.typography.labelLarge)
-                            Spacer(Modifier.height(8.dp))
-
-                            if (targetUser!!.lastLocation != null) {
-                                Text("Lat: ${targetUser!!.lastLocation!!.latitude}")
-                                Text("Long: ${targetUser!!.lastLocation!!.longitude}")
-                            } else {
-                                Text(stringResource(R.string.waiting_gps), color = MaterialTheme.colorScheme.error)
+                if (isLandscape) {
+                    // --- LANDSCAPE ---
+                    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        // Left: Profile Info
+                        Column(
+                            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Person, null, modifier = Modifier.size(80.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.height(16.dp))
+                            Text(targetUser!!.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                            Text(targetUser!!.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        // Right: Location & Action
+                        Column(
+                            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(stringResource(R.string.last_known_location_label), style = MaterialTheme.typography.labelLarge)
+                                    Spacer(Modifier.height(8.dp))
+                                    if (targetUser!!.lastLocation != null) {
+                                        Text("Lat: ${targetUser!!.lastLocation!!.latitude}")
+                                        Text("Long: ${targetUser!!.lastLocation!!.longitude}")
+                                    } else {
+                                        Text(stringResource(R.string.waiting_gps), color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(24.dp))
+                            Button(
+                                onClick = {
+                                    targetUser!!.lastLocation?.let { loc ->
+                                        val label = Uri.encode(targetUser!!.name)
+                                        val uri = Uri.parse("geo:${loc.latitude},${loc.longitude}?q=${loc.latitude},${loc.longitude}($label)")
+                                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                                        context.startActivity(intent)
+                                    }
+                                },
+                                enabled = targetUser!!.lastLocation != null,
+                                modifier = Modifier.fillMaxWidth().height(50.dp)
+                            ) {
+                                Icon(Icons.Default.Map, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.btn_google_maps))
                             }
                         }
                     }
-
-                    Spacer(Modifier.height(24.dp))
-
-                    Button(
-                        onClick = {
-                            targetUser!!.lastLocation?.let { loc ->
-                                val label = Uri.encode(targetUser!!.name)
-                                val uri = Uri.parse("geo:${loc.latitude},${loc.longitude}?q=${loc.latitude},${loc.longitude}($label)")
-                                val intent = Intent(Intent.ACTION_VIEW, uri)
-                                context.startActivity(intent)
+                } else {
+                    // --- PORTRAIT ---
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Icon(Icons.Default.Person, null, modifier = Modifier.size(80.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(16.dp))
+                        Text(targetUser!!.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        Text(targetUser!!.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                        Spacer(Modifier.height(32.dp))
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(stringResource(R.string.last_known_location_label), style = MaterialTheme.typography.labelLarge)
+                                Spacer(Modifier.height(8.dp))
+                                if (targetUser!!.lastLocation != null) {
+                                    Text("Lat: ${targetUser!!.lastLocation!!.latitude}")
+                                    Text("Long: ${targetUser!!.lastLocation!!.longitude}")
+                                } else {
+                                    Text(stringResource(R.string.waiting_gps), color = MaterialTheme.colorScheme.error)
+                                }
                             }
-                        },
-                        enabled = targetUser!!.lastLocation != null,
-                        modifier = Modifier.fillMaxWidth().height(50.dp)
-                    ) {
-                        Icon(Icons.Default.Map, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.btn_google_maps))
+                        }
+                        Spacer(Modifier.height(24.dp))
+                        Button(
+                            onClick = {
+                                targetUser!!.lastLocation?.let { loc ->
+                                    val label = Uri.encode(targetUser!!.name)
+                                    val uri = Uri.parse("geo:${loc.latitude},${loc.longitude}?q=${loc.latitude},${loc.longitude}($label)")
+                                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                                    context.startActivity(intent)
+                                }
+                            },
+                            enabled = targetUser!!.lastLocation != null,
+                            modifier = Modifier.fillMaxWidth().height(50.dp)
+                        ) {
+                            Icon(Icons.Default.Map, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.btn_google_maps))
+                        }
                     }
                 }
             } else {
-                CircularProgressIndicator()
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }
     }

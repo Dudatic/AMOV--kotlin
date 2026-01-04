@@ -72,8 +72,54 @@
     <string name="enter_code_instruction">Enter the code provided by the protected user:</string>
     <string name="recent_alerts">Recent Alerts</string>
     <string name="no_active_alerts">No active alerts</string>
-    <string name="status_active">ACTIVE</string>
+    <string name="status_alert_active">ACTIVE</string>
     <string name="alert_details_missing">Alert Details Missing</string>
+
+    <string name="profile_title">Edit Profile</string>
+    <string name="label_new_password">New Password</string>
+    <string name="msg_profile_updated">Profile updated successfully</string>
+    <string name="err_profile_update">Error updating profile</string>
+    <string name="label_current_password">Current Password</string>
+    <string name="err_current_pass_required">Current password is required to set a new one.</string>
+
+    <string name="btn_remove">Remove</string>
+    <string name="title_confirm_remove">Confirm Disassociation</string>
+    <string name="msg_confirm_remove">Are you sure you want to stop sharing data with %1$s?</string>
+    <string name="btn_my_monitors">My Monitors</string>
+    <string name="title_my_monitors">Associated Monitors</string>
+    <string name="no_monitors">No monitors associated.</string>
+
+    <string name="title_rule_requests">Rule Requests</string>
+    <string name="btn_approve">Approve</string>
+    <string name="btn_reject">Reject</string>
+    <string name="msg_rule_request">Monitor wants to set: %1$s</string>
+    <string name="details_speed">Max Speed: %1$s km/h</string>
+    <string name="details_inactivity">Inactivity: %1$s min</string>
+    <string name="details_geo">Geofence Radius: %1$s m</string>
+    <string name="status_pending">Status: Pending Approval</string>
+    <string name="status_active">Status: Active</string>
+    <string name="no_pending_rules">No pending rule requests.</string>
+    <string name="new_rules_badge">New Rules!</string>
+
+    <string name="btn_active_rules">Active Rules</string>
+    <string name="title_active_rules">Active Safety Rules</string>
+    <string name="msg_no_active_rules">No active rules monitored.</string>
+    <string name="label_set_by">Set by: %1$s</string>
+    <string name="label_requested_by">Requested by: %1$s</string>
+    <string name="btn_revoke">Revoke</string>
+    <string name="details_time_window">\nTime: %1$s - %2$s</string>
+
+    <string name="alert_details_title">Alert Details</string>
+    <string name="alert_status_label">Status: %1$s</string>
+    <string name="alert_time_label">Time: %1$s</string>
+    <string name="alert_reason_label">Reason: %1$s</string>
+    <string name="alert_reason_na">N/A</string>
+    <string name="btn_open_maps">Open Location in Maps</string>
+    <string name="btn_view_map">View on Map</string>
+    <string name="msg_no_video">No video recorded.</string>
+    <string name="btn_watch_video">Watch Emergency Video</string>
+    <string name="btn_mark_resolved">Mark as Resolved</string>
+    <string name="btn_resolved">Resolved</string>
 
     <string name="alert_zone">Safe Zone Alert</string>
     <string name="alert_fall">Fall Detected</string>
@@ -105,7 +151,7 @@
     <string name="geofence_instruction">Creates a circular zone around the current location.</string>
     <string name="current_center">Center: %1$s, %2$s</string>
     <string name="error_location">Location unknown</string>
-    <string name="radius_label">Radius (m)</string>
+    <string name="radius_label">Radius (meters)</string>
     <string name="success_fence">Geofence Created!</string>
     <string name="btn_activate_fence">Activate Fence</string>
     <string name="manage_rules">Manage Rules</string>

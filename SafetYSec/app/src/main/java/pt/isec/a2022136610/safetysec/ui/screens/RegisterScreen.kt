@@ -2,12 +2,10 @@ package pt.isec.a2022136610.safetysec.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,108 +54,126 @@ fun RegisterScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.register_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBackToLogin) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+    // Role Selection Component
+    val RoleSelection = @Composable {
+        Text(stringResource(R.string.select_role), style = MaterialTheme.typography.titleMedium)
+        Column(Modifier.fillMaxWidth()) {
+            val roles = listOf(
+                stringResource(R.string.role_monitor) to UserRole.MONITOR,
+                stringResource(R.string.role_protected) to UserRole.PROTECTED,
+                stringResource(R.string.role_both) to UserRole.BOTH
             )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(stringResource(R.string.register_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(32.dp))
-
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(R.string.name_label)) },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text(stringResource(R.string.email_label)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text(stringResource(R.string.password_label)) },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, contentDescription = null)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            Text(stringResource(R.string.select_role), style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.Start))
-            Spacer(Modifier.height(8.dp))
-
-            Column(Modifier.fillMaxWidth()) {
-                val roles = listOf(
-                    stringResource(R.string.role_monitor) to UserRole.MONITOR,
-                    stringResource(R.string.role_protected) to UserRole.PROTECTED,
-                    stringResource(R.string.role_both) to UserRole.BOTH
-                )
-
-                roles.forEach { (label, role) ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .selectable(
-                                selected = (selectedRole == role),
-                                onClick = { selectedRole = role },
-                                role = Role.RadioButton
-                            )
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
+            roles.forEach { (label, role) ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .selectable(
                             selected = (selectedRole == role),
-                            onClick = null
+                            onClick = { selectedRole = role },
+                            role = Role.RadioButton
                         )
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(start = 16.dp)
-                        )
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = (selectedRole == role), onClick = null)
+                    Text(text = label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (maxWidth > maxHeight) {
+            // --- LANDSCAPE ---
+            Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Left: Inputs
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(stringResource(R.string.register_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = name, onValueChange = { name = it },
+                        label = { Text(stringResource(R.string.name_label)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = email, onValueChange = { email = it },
+                        label = { Text(stringResource(R.string.email_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = password, onValueChange = { password = it },
+                        label = { Text(stringResource(R.string.password_label)) },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                // Right: Role & Button
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    RoleSelection()
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { viewModel.register(email, password, name, selectedRole) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = authState !is AuthState.Loading
+                    ) {
+                        if (authState is AuthState.Loading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text(stringResource(R.string.register_button))
+                        }
+                    }
+                    TextButton(onClick = onBackToLogin) {
+                        Text("Back to Login")
                     }
                 }
             }
-
-            Spacer(Modifier.height(32.dp))
-
-            Button(
-                onClick = { viewModel.register(email, password, name, selectedRole) },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                enabled = authState !is AuthState.Loading
+        } else {
+            // --- PORTRAIT ---
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (authState is AuthState.Loading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                } else {
-                    Text(stringResource(R.string.register_button))
+                Text(stringResource(R.string.register_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(24.dp))
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.name_label)) }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text(stringResource(R.string.email_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text(stringResource(R.string.password_label)) }, visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(16.dp))
+                RoleSelection()
+                Spacer(Modifier.height(24.dp))
+                Button(
+                    onClick = { viewModel.register(email, password, name, selectedRole) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = authState !is AuthState.Loading
+                ) {
+                    if (authState is AuthState.Loading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    } else {
+                        Text(stringResource(R.string.register_button))
+                    }
                 }
             }
         }

@@ -11,6 +11,11 @@ enum class RuleType {
     GEOFENCING, FALL_DETECTION, ACCIDENT, MAX_SPEED, INACTIVITY, PANIC_BUTTON
 }
 
+// NEW: Status for Rule Approval
+enum class RuleStatus {
+    PENDING, ACTIVE, REJECTED
+}
+
 data class UserProfile(
     val id: String = "",
     val email: String = "",
@@ -28,7 +33,7 @@ data class SafetyAlert(
     val ruleType: RuleType = RuleType.PANIC_BUTTON,
     val timestamp: Timestamp = Timestamp.now(),
     val location: GeoPoint? = null,
-    val status: String = "ACTIVE", // ACTIVE, RESOLVED, CANCELED
+    val status: String = "ACTIVE",
     val cancelReason: String? = null,
     val videoUrl: String? = null
 )
@@ -38,14 +43,16 @@ data class SafetyRule(
     val monitorId: String = "",
     val protectedId: String = "",
     val type: RuleType = RuleType.GEOFENCING,
+    // isActive checks if the rule is technically "on",
+    // status checks if the user agreed to it.
     val isActive: Boolean = true,
+    val status: RuleStatus = RuleStatus.PENDING, // Default to PENDING
     val name: String = "",
-    // Rule specific params
     val geofenceCenter: GeoPoint? = null,
     val geofenceRadiusMeters: Double? = null,
     val maxSpeedKmh: Double? = null,
     val inactivityTimeMinutes: Int? = null,
-    val activeDays: List<Int>? = null, // Calendar.DAY_OF_WEEK
-    val startTime: String? = null, // "HH:mm"
+    val activeDays: List<Int>? = null,
+    val startTime: String? = null,
     val endTime: String? = null
 )

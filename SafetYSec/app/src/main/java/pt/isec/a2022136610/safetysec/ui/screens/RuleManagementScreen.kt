@@ -7,7 +7,9 @@ import android.widget.TimePicker
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
@@ -15,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -22,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.isec.a2022136610.safetysec.R
+import pt.isec.a2022136610.safetysec.model.RuleStatus
 import pt.isec.a2022136610.safetysec.model.RuleType
 import pt.isec.a2022136610.safetysec.model.SafetyRule
 import pt.isec.a2022136610.safetysec.viewmodel.AuthViewModel
@@ -35,11 +39,7 @@ fun RuleManagementScreen(
     viewModel: AuthViewModel = viewModel()
 ) {
     val context = LocalContext.current
-
-    LaunchedEffect(protectedId) {
-        viewModel.loadRulesForUser(protectedId)
-    }
-
+    LaunchedEffect(protectedId) { viewModel.loadRulesForUser(protectedId) }
     val rules by viewModel.selectedUserRules.collectAsState()
 
     var speedLimit by remember { mutableStateOf("") }
@@ -47,22 +47,35 @@ fun RuleManagementScreen(
     var startTime by remember { mutableStateOf("09:00") }
     var endTime by remember { mutableStateOf("20:00") }
 
-    // --- WHEEL PICKER STATE ---
+    var speedStatus by remember { mutableStateOf("") }
+    var inactivityStatus by remember { mutableStateOf("") }
+
     var showWheelPicker by remember { mutableStateOf(false) }
     var isSelectingStartTime by remember { mutableStateOf(true) }
 
-    // Auto-fill
+    val statusActive = stringResource(R.string.status_active)
+    val statusPending = stringResource(R.string.status_pending)
+
     LaunchedEffect(rules) {
         val speedRule = rules.find { it.type == RuleType.MAX_SPEED }
         if (speedRule != null) {
             speedLimit = speedRule.maxSpeedKmh?.toString() ?: ""
+            speedStatus = if (speedRule.status == RuleStatus.ACTIVE) statusActive else statusPending
         }
-
         val inactivityRule = rules.find { it.type == RuleType.INACTIVITY }
         if (inactivityRule != null) {
             inactivityLimit = inactivityRule.inactivityTimeMinutes?.toString() ?: ""
             startTime = inactivityRule.startTime ?: "09:00"
             endTime = inactivityRule.endTime ?: "20:00"
+            inactivityStatus = if (inactivityRule.status == RuleStatus.ACTIVE) statusActive else statusPending
+        }
+        // If Geofence exists but not others, try to load time from it too
+        if (speedRule == null && inactivityRule == null) {
+            val geoRule = rules.find { it.type == RuleType.GEOFENCING }
+            if (geoRule != null && geoRule.startTime != null) {
+                startTime = geoRule.startTime
+                endTime = geoRule.endTime ?: "20:00"
+            }
         }
     }
 
@@ -71,126 +84,52 @@ fun RuleManagementScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.manage_rules)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.btn_back))
-                    }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.btn_back)) }
                 }
             )
         }
     ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues).padding(16.dp)) {
-
-            // --- SPEED RULE ---
-            Text(stringResource(R.string.speed_control))
-            OutlinedTextField(
-                value = speedLimit,
-                onValueChange = { speedLimit = it },
-                label = { Text(stringResource(R.string.rule_speed)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Divider(modifier = Modifier.padding(vertical = 16.dp))
-
-            // --- INACTIVITY RULE ---
-            Text(stringResource(R.string.inactivity_monitor))
-            OutlinedTextField(
-                value = inactivityLimit,
-                onValueChange = { inactivityLimit = it },
-                label = { Text(stringResource(R.string.rule_inactivity)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            // --- TIME SELECTION (Optional) ---
-            Text(stringResource(R.string.active_hours))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-
-                // Start Time
-                OutlinedTextField(
-                    value = startTime,
-                    onValueChange = { },
-                    label = { Text(stringResource(R.string.time_start)) },
-                    modifier = Modifier.weight(1f).clickable {
-                        isSelectingStartTime = true
-                        showWheelPicker = true
-                    },
-                    enabled = false,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                        disabledBorderColor = MaterialTheme.colorScheme.outline,
-                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    trailingIcon = {
-                        IconButton(onClick = { isSelectingStartTime = true; showWheelPicker = true }) {
-                            Icon(Icons.Default.AccessTime, contentDescription = null)
-                        }
+        BoxWithConstraints(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+            val isLandscape = maxWidth > maxHeight
+            if (isLandscape) {
+                Row(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
+                        Text(stringResource(R.string.speed_control), style = MaterialTheme.typography.titleMedium)
+                        if (speedStatus.isNotEmpty()) Text(speedStatus, style = MaterialTheme.typography.labelSmall, color = if (speedStatus == statusActive) Color.Green else Color(0xFFFF9800))
+                        OutlinedTextField(value = speedLimit, onValueChange = { speedLimit = it }, label = { Text(stringResource(R.string.rule_speed)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(16.dp))
+                        Text(stringResource(R.string.inactivity_monitor), style = MaterialTheme.typography.titleMedium)
+                        if (inactivityStatus.isNotEmpty()) Text(inactivityStatus, style = MaterialTheme.typography.labelSmall, color = if (inactivityStatus == statusActive) Color.Green else Color(0xFFFF9800))
+                        OutlinedTextField(value = inactivityLimit, onValueChange = { inactivityLimit = it }, label = { Text(stringResource(R.string.rule_inactivity)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                     }
-                )
-
-                // End Time
-                OutlinedTextField(
-                    value = endTime,
-                    onValueChange = { },
-                    label = { Text(stringResource(R.string.time_end)) },
-                    modifier = Modifier.weight(1f).clickable {
-                        isSelectingStartTime = false
-                        showWheelPicker = true
-                    },
-                    enabled = false,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                        disabledBorderColor = MaterialTheme.colorScheme.outline,
-                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    trailingIcon = {
-                        IconButton(onClick = { isSelectingStartTime = false; showWheelPicker = true }) {
-                            Icon(Icons.Default.AccessTime, contentDescription = null)
+                    Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
+                        Text(stringResource(R.string.active_hours), style = MaterialTheme.typography.bodyMedium)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(value = startTime, onValueChange = { }, label = { Text(stringResource(R.string.time_start)) }, modifier = Modifier.weight(1f).clickable { isSelectingStartTime = true; showWheelPicker = true }, enabled = false, colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledBorderColor = MaterialTheme.colorScheme.outline, disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant), trailingIcon = { IconButton(onClick = { isSelectingStartTime = true; showWheelPicker = true }) { Icon(Icons.Default.AccessTime, contentDescription = null) } })
+                            OutlinedTextField(value = endTime, onValueChange = { }, label = { Text(stringResource(R.string.time_end)) }, modifier = Modifier.weight(1f).clickable { isSelectingStartTime = false; showWheelPicker = true }, enabled = false, colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledBorderColor = MaterialTheme.colorScheme.outline, disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant), trailingIcon = { IconButton(onClick = { isSelectingStartTime = false; showWheelPicker = true }) { Icon(Icons.Default.AccessTime, contentDescription = null) } })
                         }
+                        Spacer(Modifier.height(32.dp))
+                        Button(onClick = { saveRules(rules, protectedId, speedLimit, inactivityLimit, startTime, endTime, viewModel, context) }, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(stringResource(R.string.set_rules)) }
                     }
-                )
-            }
-
-            Spacer(Modifier.height(32.dp))
-
-            // --- GLOBAL SET RULES BUTTON ---
-            Button(
-                onClick = {
-                    // 1. Save Speed Rule
-                    val existingSpeedRule = rules.find { it.type == RuleType.MAX_SPEED }
-                    val newSpeedRule = SafetyRule(
-                        id = existingSpeedRule?.id ?: "",
-                        protectedId = protectedId,
-                        type = RuleType.MAX_SPEED,
-                        name = "Max Speed Limit",
-                        maxSpeedKmh = speedLimit.toDoubleOrNull() ?: 120.0,
-                        isActive = true,
-                        startTime = startTime,
-                        endTime = endTime
-                    )
-                    viewModel.saveRule(newSpeedRule)
-
-                    // 2. Save Inactivity Rule
-                    val existingInactivityRule = rules.find { it.type == RuleType.INACTIVITY }
-                    val newInactivityRule = SafetyRule(
-                        id = existingInactivityRule?.id ?: "",
-                        protectedId = protectedId,
-                        type = RuleType.INACTIVITY,
-                        name = "Inactivity Check",
-                        inactivityTimeMinutes = inactivityLimit.toIntOrNull() ?: 30,
-                        isActive = true,
-                        startTime = startTime,
-                        endTime = endTime
-                    )
-                    viewModel.saveRule(newInactivityRule)
-
-                    Toast.makeText(context, "Rules Updated Successfully!", Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.fillMaxWidth().height(50.dp)
-            ) {
-                Text(stringResource(R.string.set_rules))
+                }
+            } else {
+                Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                    Text(stringResource(R.string.speed_control), style = MaterialTheme.typography.titleMedium)
+                    if (speedStatus.isNotEmpty()) Text(speedStatus, style = MaterialTheme.typography.labelSmall, color = if (speedStatus == statusActive) Color.Green else Color(0xFFFF9800))
+                    OutlinedTextField(value = speedLimit, onValueChange = { speedLimit = it }, label = { Text(stringResource(R.string.rule_speed)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                    Divider(modifier = Modifier.padding(vertical = 16.dp))
+                    Text(stringResource(R.string.inactivity_monitor), style = MaterialTheme.typography.titleMedium)
+                    if (inactivityStatus.isNotEmpty()) Text(inactivityStatus, style = MaterialTheme.typography.labelSmall, color = if (inactivityStatus == statusActive) Color.Green else Color(0xFFFF9800))
+                    OutlinedTextField(value = inactivityLimit, onValueChange = { inactivityLimit = it }, label = { Text(stringResource(R.string.rule_inactivity)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(16.dp))
+                    Text(stringResource(R.string.active_hours), style = MaterialTheme.typography.bodyMedium)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = startTime, onValueChange = { }, label = { Text(stringResource(R.string.time_start)) }, modifier = Modifier.weight(1f).clickable { isSelectingStartTime = true; showWheelPicker = true }, enabled = false, colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledBorderColor = MaterialTheme.colorScheme.outline, disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant), trailingIcon = { IconButton(onClick = { isSelectingStartTime = true; showWheelPicker = true }) { Icon(Icons.Default.AccessTime, null) } })
+                        OutlinedTextField(value = endTime, onValueChange = { }, label = { Text(stringResource(R.string.time_end)) }, modifier = Modifier.weight(1f).clickable { isSelectingStartTime = false; showWheelPicker = true }, enabled = false, colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurface, disabledBorderColor = MaterialTheme.colorScheme.outline, disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant), trailingIcon = { IconButton(onClick = { isSelectingStartTime = false; showWheelPicker = true }) { Icon(Icons.Default.AccessTime, null) } })
+                    }
+                    Spacer(Modifier.height(32.dp))
+                    Button(onClick = { saveRules(rules, protectedId, speedLimit, inactivityLimit, startTime, endTime, viewModel, context) }, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(stringResource(R.string.set_rules)) }
+                }
             }
         }
     }
@@ -200,65 +139,65 @@ fun RuleManagementScreen(
         val parts = initialTime.split(":")
         val initH = parts.getOrNull(0)?.toIntOrNull() ?: 9
         val initM = parts.getOrNull(1)?.toIntOrNull() ?: 0
-
-        WheelTimePickerDialog(
-            initialHour = initH,
-            initialMinute = initM,
-            onCancel = { showWheelPicker = false },
-            onConfirm = { h, m ->
-                val formatted = String.format("%02d:%02d", h, m)
-                if (isSelectingStartTime) startTime = formatted else endTime = formatted
-                showWheelPicker = false
-            }
-        )
+        WheelTimePickerDialog(initialHour = initH, initialMinute = initM, onCancel = { showWheelPicker = false }, onConfirm = { h, m -> val formatted = String.format("%02d:%02d", h, m); if (isSelectingStartTime) startTime = formatted else endTime = formatted; showWheelPicker = false })
     }
 }
 
-// --- CUSTOM WHEEL PICKER DIALOG ---
+fun saveRules(rules: List<SafetyRule>, protectedId: String, speedLimit: String, inactivityLimit: String, startTime: String, endTime: String, viewModel: AuthViewModel, context: Context) {
+    // 1. Update/Create Speed Rule
+    if (speedLimit.isNotBlank()) {
+        val existingSpeedRule = rules.find { it.type == RuleType.MAX_SPEED }
+        val newSpeedRule = SafetyRule(
+            id = existingSpeedRule?.id ?: "",
+            monitorId = existingSpeedRule?.monitorId ?: "",
+            protectedId = protectedId,
+            type = RuleType.MAX_SPEED,
+            name = "Max Speed Limit",
+            maxSpeedKmh = speedLimit.toDoubleOrNull() ?: 120.0,
+            isActive = true,
+            startTime = startTime,
+            endTime = endTime,
+            status = RuleStatus.PENDING
+        )
+        viewModel.saveRule(newSpeedRule)
+    }
+
+    // 2. Update/Create Inactivity Rule
+    if (inactivityLimit.isNotBlank()) {
+        val existingInactivityRule = rules.find { it.type == RuleType.INACTIVITY }
+        val newInactivityRule = SafetyRule(
+            id = existingInactivityRule?.id ?: "",
+            monitorId = existingInactivityRule?.monitorId ?: "",
+            protectedId = protectedId,
+            type = RuleType.INACTIVITY,
+            name = "Inactivity Check",
+            inactivityTimeMinutes = inactivityLimit.toIntOrNull() ?: 30,
+            isActive = true,
+            startTime = startTime,
+            endTime = endTime,
+            status = RuleStatus.PENDING
+        )
+        viewModel.saveRule(newInactivityRule)
+    }
+
+    // 3. Update Geofence Rule if it exists (Apply new time & PENDING status)
+    val existingGeoRule = rules.find { it.type == RuleType.GEOFENCING }
+    if (existingGeoRule != null) {
+        val updatedGeo = existingGeoRule.copy(
+            startTime = startTime,
+            endTime = endTime,
+            status = RuleStatus.PENDING, // Re-request approval for time change
+            isActive = true
+        )
+        viewModel.saveRule(updatedGeo)
+    }
+
+    Toast.makeText(context, "Rules Requested! Waiting for approval.", Toast.LENGTH_SHORT).show()
+}
+
 @Composable
-fun WheelTimePickerDialog(
-    initialHour: Int,
-    initialMinute: Int,
-    onCancel: () -> Unit,
-    onConfirm: (Int, Int) -> Unit
-) {
-    // We use a temporary state to hold values while scrolling
+fun WheelTimePickerDialog(initialHour: Int, initialMinute: Int, onCancel: () -> Unit, onConfirm: (Int, Int) -> Unit) {
     var currentHour by remember { mutableIntStateOf(initialHour) }
     var currentMinute by remember { mutableIntStateOf(initialMinute) }
-
-    AlertDialog(
-        onDismissRequest = onCancel,
-        confirmButton = {
-            TextButton(onClick = { onConfirm(currentHour, currentMinute) }) { Text(stringResource(R.string.btn_ok)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onCancel) { Text(stringResource(R.string.btn_cancel)) }
-        },
-        text = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Spacer(Modifier.height(16.dp))
-
-                // Using AndroidView to wrap the native TimePicker in Spinner Mode
-                AndroidView(
-                    factory = { context ->
-                        // Theme_Holo_Light_Dialog_NoActionBar forces the "Wheel/Spinner" style
-                        val contextThemeWrapper = ContextThemeWrapper(context, android.R.style.Theme_Holo_Light_Dialog_NoActionBar)
-                        TimePicker(contextThemeWrapper).apply {
-                            setIs24HourView(true)
-                            hour = initialHour
-                            minute = initialMinute
-                            setOnTimeChangedListener { _, h, m ->
-                                currentHour = h
-                                currentMinute = m
-                            }
-                        }
-                    },
-                    modifier = Modifier.wrapContentSize()
-                )
-            }
-        }
-    )
+    AlertDialog(onDismissRequest = onCancel, confirmButton = { TextButton(onClick = { onConfirm(currentHour, currentMinute) }) { Text("OK") } }, dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } }, text = { Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) { Text("Select Time", style = MaterialTheme.typography.titleMedium); Spacer(Modifier.height(16.dp)); AndroidView(factory = { context -> val contextThemeWrapper = ContextThemeWrapper(context, android.R.style.Theme_Holo_Light_Dialog_NoActionBar); TimePicker(contextThemeWrapper).apply { setIs24HourView(true); hour = initialHour; minute = initialMinute; setOnTimeChangedListener { _, h, m -> currentHour = h; currentMinute = m } } }, modifier = Modifier.wrapContentSize()) } })
 }

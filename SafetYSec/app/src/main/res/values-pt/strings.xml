@@ -1,0 +1,166 @@
+<resources>
+    <string name="app_name">SafetYSec</string>
+
+    <string name="btn_ok">OK</string>
+    <string name="btn_cancel">Cancelar</string>
+    <string name="btn_close">Fechar</string>
+    <string name="btn_resolve">Resolver</string>
+    <string name="btn_ignore">Ignorar</string>
+    <string name="btn_update">Atualizar</string>
+    <string name="btn_back">Voltar</string>
+
+    <string name="login_title">SafetYSec</string>
+    <string name="login_button">Entrar</string>
+    <string name="register_link">Não tem conta? Registe-se aqui</string>
+    <string name="register_title">Registo</string>
+    <string name="name_label">Nome</string>
+    <string name="email_label">Email</string>
+    <string name="password_label">Palavra-passe</string>
+    <string name="register_button">Registar</string>
+    <string name="login_error">Erro no Login</string>
+    <string name="reg_error">Erro no Registo</string>
+    <string name="save_profile_error">Erro ao guardar perfil</string>
+    <string name="reg_success">Registo efetuado com sucesso</string>
+    <string name="select_role">Selecione o Perfil:</string>
+    <string name="role_monitor">Monitor</string>
+    <string name="role_protected">Protegido</string>
+    <string name="role_both">Ambos</string>
+
+    <string name="err_monitor_self">Não pode monitorizar-se a si próprio.</string>
+    <string name="err_invalid_code">Código Inválido</string>
+    <string name="err_verification">Erro de Verificação</string>
+    <string name="err_pin_digits">O PIN deve ter 4 dígitos</string>
+    <string name="err_pin_update">Falha ao atualizar PIN</string>
+    <string name="err_account_not_found">Dados da conta não encontrados. Registe-se novamente.</string>
+    <string name="err_db_connection">Falha na ligação à base de dados.</string>
+    <string name="msg_pin_updated">PIN Atualizado com Sucesso</string>
+
+    <string name="perm_title">Permissões Necessárias</string>
+    <string name="perm_desc">Para sua segurança, a aplicação necessita que ative as seguintes permissões:</string>
+    <string name="perm_list">• Localização (GPS)\n• Câmara\n• Notificações\n• Atividade Física</string>
+    <string name="perm_btn_settings">Ativar nas Definições</string>
+    <string name="perm_btn_refresh">Já ativei, atualizar</string>
+    <string name="def_user_monitor">Monitor</string>
+    <string name="def_user_protected">Protegido</string>
+    <string name="def_user_generic">Utilizador</string>
+
+    <string name="hello_user">Olá, %1$s</string>
+    <string name="code_dialog_title">Código de Associação</string>
+
+    <string name="mode_protected">Modo Protegido</string>
+    <string name="protection_active">Proteção Ativa</string>
+    <string name="sos_button">SOS</string>
+    <string name="sos_instruction">\tPressione em case de emergência\n\t\t\t(Gravação de 30s após alerta)</string>
+    <string name="btn_associate">Associar Monitor</string>
+    <string name="btn_history">Histórico</string>
+    <string name="btn_change_pin">Alterar PIN</string>
+    <string name="title_update_pin">Atualizar PIN de Cancelamento</string>
+    <string name="prompt_new_pin">Insira novo PIN (4 dígitos):</string>
+    <string name="alert_progress">Alerta em progresso…</string>
+    <string name="alert_sent_rec">ALERTA ENVIADO! A GRAVAR…</string>
+    <string name="rec_emergency_msg">A GRAVAR VÍDEO DE EMERGÊNCIA…</string>
+
+    <string name="monitor_dashboard">Modo Monitor</string>
+    <string name="statistics_title">Estatísticas</string>
+    <string name="stat_tracked_users">Utilizadores</string>
+    <string name="stat_active_alerts">Alertas Ativos</string>
+    <string name="my_proteges">Meus Protegidos</string>
+    <string name="no_proteges">Nenhum protegido associado ainda.</string>
+    <string name="location_ok">Localização: OK</string>
+    <string name="no_location">Localização: Desconhecida</string>
+    <string name="associate_new">Associar Novo</string>
+    <string name="enter_code_instruction">Insira o código fornecido pelo utilizador protegido:</string>
+    <string name="recent_alerts">Alertas Recentes</string>
+    <string name="no_active_alerts">Sem alertas ativos</string>
+    <string name="status_alert_active">ATIVO</string>
+    <string name="alert_details_missing">Detalhes do Alerta em falta</string>
+
+    <string name="profile_title">Editar Perfil</string>
+    <string name="label_new_password">Nova Palavra-passe</string>
+    <string name="msg_profile_updated">Perfil atualizado com sucesso</string>
+    <string name="err_profile_update">Erro ao atualizar perfil</string>
+    <string name="label_current_password">Palavra-passe Atual</string>
+    <string name="err_current_pass_required">Palavra-passe atual necessária para definir a nova.</string>
+
+    <string name="btn_remove">Remover</string>
+    <string name="title_confirm_remove">Confirmar Desassociação</string>
+    <string name="msg_confirm_remove">Tem a certeza que deseja parar de partilhar dados com %1$s?</string>
+    <string name="btn_my_monitors">Meus Monitores</string>
+    <string name="title_my_monitors">Monitores Associados</string>
+    <string name="no_monitors">Sem monitores associados.</string>
+
+    <string name="title_rule_requests">Pedidos de Regras</string>
+    <string name="btn_approve">Aprovar</string>
+    <string name="btn_reject">Rejeitar</string>
+    <string name="msg_rule_request">O monitor quer definir: %1$s</string>
+    <string name="details_speed">Velocidade máxima: %1$s km/h</string>
+    <string name="details_inactivity">Inatividade: %1$s min</string>
+    <string name="details_geo">Raio da Zona Segura: %1$s m</string>
+    <string name="status_pending">Estado: Aprovação Pendente</string>
+    <string name="status_active">Estado: Ativo</string>
+    <string name="no_pending_rules">Sem pedidos de regras pendentes</string>
+    <string name="new_rules_badge">Regras Novas!</string>
+
+    <string name="btn_active_rules">Regras Ativas</string>
+    <string name="title_active_rules">Regras de Segurança Ativas</string>
+    <string name="msg_no_active_rules">Sem regras ativas monitorizadas.</string>
+    <string name="label_set_by">Definido por: %1$s</string>
+    <string name="label_requested_by">Pedido por: %1$s</string>
+    <string name="btn_revoke">Revogar</string>
+    <string name="details_time_window">\nHorário: %1$s - %2$s</string>
+
+    <string name="alert_details_title">Detalhes do Alerta</string>
+    <string name="alert_status_label">Estado: %1$s</string>
+    <string name="alert_time_label">Hora: %1$s</string>
+    <string name="alert_reason_label">Motivo: %1$s</string>
+    <string name="alert_reason_na">N/A</string>
+    <string name="btn_open_maps">Abrir Localização no Maps</string>
+    <string name="btn_view_map">Ver no Mapa</string>
+    <string name="msg_no_video">Nenhum vídeo gravado.</string>
+    <string name="btn_watch_video">Ver Vídeo de Emergência</string>
+    <string name="btn_mark_resolved">Marcar como Resolvido</string>
+    <string name="btn_resolved">Resolvido</string>
+
+    <string name="alert_zone">Alerta de Zona</string>
+    <string name="alert_fall">Queda Detetada</string>
+    <string name="alert_accident">Acidente Detetado</string>
+    <string name="alert_sos">Alerta SOS</string>
+    <string name="reason_fall">QUEDA DETETADA</string>
+    <string name="reason_accident">ACIDENTE DETETADO</string>
+    <string name="reason_zone">SAIU DA ZONA SEGURA: %1$s</string>
+    <string name="reason_speed">EXCESSO VELOCIDADE: %1$s km/h</string>
+    <string name="reason_inactivity">INATIVIDADE: %1$d min</string>
+    <string name="reason_panic">Botão de Pânico Pressionado</string>
+    <string name="reason_emergency">Emergência</string>
+    <string name="reason_test">Teste/Sem Regra</string>
+
+    <string name="video_sending">A enviar gravação de emergência…</string>
+    <string name="video_error_link">Erro ao obter link do vídeo: %1$s</string>
+    <string name="video_upload_failed">Falha no Envio: %1$s</string>
+
+    <string name="history_title">Histórico de Alertas</string>
+    <string name="no_history">Não foram encontrados alertas anteriores.</string>
+    <string name="location_title">Localização</string>
+    <string name="back_desc">Voltar</string>
+    <string name="last_known_location_label">Última posição conhecida</string>
+    <string name="waiting_gps">À espera de sinal GPS…</string>
+    <string name="btn_google_maps">Abrir no Google Maps</string>
+    <string name="config_geofence">Configurar Zona Segura</string>
+    <string name="protected_user">Utilizador: %1$s</string>
+    <string name="set_safe_zone">Definir Zona Sergura</string>
+    <string name="geofence_instruction">O perímetro será criado usando a ÚLTIMA POSIÇÃO CONHECIDA do protegido como centro.</string>
+    <string name="current_center">Centro: %1$s, %2$s</string>
+    <string name="error_location">Localização Desconhecida</string>
+    <string name="radius_label">Raio (m)</string>
+    <string name="success_fence">Zona Segura Criada!</string>
+    <string name="btn_activate_fence">Activar Zona Segura</string>
+    <string name="manage_rules">Definir Regras</string>
+    <string name="rule_speed">Velocidade Máxima (km/h)</string>
+    <string name="rule_inactivity">Inatividade (min)</string>
+    <string name="time_start">Início (HH:mm)</string>
+    <string name="time_end">Fim (HH:mm)</string>
+    <string name="set_rules">Gravar Regras</string>
+    <string name="speed_control">Controlo de Velocidade</string>
+    <string name="inactivity_monitor">Monitor de Inatividade</string>
+    <string name="active_hours">Período de Controlo</string>
+</resources>

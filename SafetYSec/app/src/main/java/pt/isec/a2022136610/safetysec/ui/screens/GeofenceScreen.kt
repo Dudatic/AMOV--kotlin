@@ -2,7 +2,9 @@ package pt.isec.a2022136610.safetysec.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Security
@@ -17,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import pt.isec.a2022136610.safetysec.R
+import pt.isec.a2022136610.safetysec.model.RuleType
 import pt.isec.a2022136610.safetysec.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,9 +31,23 @@ fun GeofenceScreen(
 ) {
     val context = LocalContext.current
     val targetUser by viewModel.targetUser.collectAsState()
+    val rules by viewModel.selectedUserRules.collectAsState() // Observe rules
+
     var radiusInput by remember { mutableStateOf("100") }
 
-    LaunchedEffect(userId) { viewModel.loadTargetUser(userId) }
+    // Load user AND rules on entry
+    LaunchedEffect(userId) {
+        viewModel.loadTargetUser(userId)
+        viewModel.loadRulesForUser(userId)
+    }
+
+    // Pre-fill radius if rule exists
+    LaunchedEffect(rules) {
+        val geoRule = rules.find { it.type == RuleType.GEOFENCING }
+        if (geoRule != null && geoRule.geofenceRadiusMeters != null) {
+            radiusInput = geoRule.geofenceRadiusMeters.toInt().toString()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -44,75 +61,108 @@ fun GeofenceScreen(
             )
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues).fillMaxSize().padding(16.dp)) {
+        BoxWithConstraints(modifier = Modifier.padding(paddingValues).fillMaxSize().padding(16.dp)) {
+            val isLandscape = maxWidth > maxHeight
 
             if (targetUser != null) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        Icons.Default.Security,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.height(16.dp))
-
-                    Text(stringResource(R.string.protected_user, targetUser!!.name), style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(32.dp))
-
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(stringResource(R.string.set_safe_zone), style = MaterialTheme.typography.titleLarge)
-                            Spacer(Modifier.height(8.dp))
-                            Text(stringResource(R.string.geofence_instruction))
-
-                            Spacer(Modifier.height(8.dp))
-
-                            if (targetUser!!.lastLocation != null) {
-                                Text(
-                                    stringResource(R.string.current_center, targetUser!!.lastLocation!!.latitude, targetUser!!.lastLocation!!.longitude),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            } else {
-                                Text(stringResource(R.string.error_location), color = MaterialTheme.colorScheme.error)
+                if (isLandscape) {
+                    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Column(
+                            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.Security, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.height(16.dp))
+                            Text(stringResource(R.string.protected_user, targetUser!!.name), style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(16.dp))
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(stringResource(R.string.set_safe_zone), style = MaterialTheme.typography.titleLarge)
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(stringResource(R.string.geofence_instruction))
+                                    Spacer(Modifier.height(8.dp))
+                                    if (targetUser!!.lastLocation != null) {
+                                        Text(stringResource(R.string.current_center, targetUser!!.lastLocation!!.latitude, targetUser!!.lastLocation!!.longitude), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                    } else {
+                                        Text(stringResource(R.string.error_location), color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            OutlinedTextField(
+                                value = radiusInput, onValueChange = { radiusInput = it },
+                                label = { Text(stringResource(R.string.radius_label)) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(32.dp))
+                            Button(
+                                onClick = {
+                                    val radius = radiusInput.toDoubleOrNull()
+                                    if (radius != null && targetUser!!.lastLocation != null) {
+                                        viewModel.createGeofenceRule(protectedId = userId, center = targetUser!!.lastLocation!!, radius = radius)
+                                        Toast.makeText(context, "Geofence Request Sent!", Toast.LENGTH_SHORT).show()
+                                        navController.popBackStack()
+                                    } else {
+                                        Toast.makeText(context, "Error: Check Location/Radius", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = targetUser!!.lastLocation != null
+                            ) {
+                                Text(stringResource(R.string.btn_activate_fence))
                             }
                         }
                     }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    OutlinedTextField(
-                        value = radiusInput,
-                        onValueChange = { radiusInput = it },
-                        label = { Text(stringResource(R.string.radius_label)) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(Modifier.height(32.dp))
-
-                    Button(
-                        onClick = {
-                            val radius = radiusInput.toDoubleOrNull()
-                            if (radius != null && targetUser!!.lastLocation != null) {
-                                viewModel.createGeofenceRule(
-                                    protectedId = userId,
-                                    center = targetUser!!.lastLocation!!,
-                                    radius = radius
-                                )
-                                Toast.makeText(context, context.getString(R.string.success_fence), Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            } else {
-                                Toast.makeText(context, "Error", Toast.LENGTH_SHORT).show()
+                } else {
+                    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Security, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(16.dp))
+                        Text(stringResource(R.string.protected_user, targetUser!!.name), style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(32.dp))
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(stringResource(R.string.set_safe_zone), style = MaterialTheme.typography.titleLarge)
+                                Spacer(Modifier.height(8.dp))
+                                Text(stringResource(R.string.geofence_instruction))
+                                Spacer(Modifier.height(8.dp))
+                                if (targetUser!!.lastLocation != null) {
+                                    Text(stringResource(R.string.current_center, targetUser!!.lastLocation!!.latitude, targetUser!!.lastLocation!!.longitude), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                } else {
+                                    Text(stringResource(R.string.error_location), color = MaterialTheme.colorScheme.error)
+                                }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = targetUser!!.lastLocation != null
-                    ) {
-                        Text(stringResource(R.string.btn_activate_fence))
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = radiusInput, onValueChange = { radiusInput = it },
+                            label = { Text(stringResource(R.string.radius_label)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(32.dp))
+                        Button(
+                            onClick = {
+                                val radius = radiusInput.toDoubleOrNull()
+                                if (radius != null && targetUser!!.lastLocation != null) {
+                                    viewModel.createGeofenceRule(protectedId = userId, center = targetUser!!.lastLocation!!, radius = radius)
+                                    Toast.makeText(context, "Geofence Request Sent!", Toast.LENGTH_SHORT).show()
+                                    navController.popBackStack()
+                                } else {
+                                    Toast.makeText(context, "Error: Check Location/Radius", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = targetUser!!.lastLocation != null
+                        ) {
+                            Text(stringResource(R.string.btn_activate_fence))
+                        }
                     }
                 }
             } else {
